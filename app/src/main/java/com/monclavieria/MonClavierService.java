@@ -1,5 +1,8 @@
 package com.monclavieria;
 
+import android.content.ClipboardManager;
+import android.content.ClipData;
+import android.content.Context;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -11,6 +14,7 @@ import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
 import android.widget.Button;
 import android.widget.LinearLayout;
+import android.widget.Toast;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -110,6 +114,10 @@ public class MonClavierService extends InputMethodService {
                 ic.sendKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER));
             }
         });
+        Button quiz = creerTouche("QUIZ");
+        ajouterTouche(bas, quiz, 1.5f);
+        quiz.setOnClickListener(v -> chargerQuestionDepuisPressePapiers());
+
         clavier.addView(bas);
         return clavier;
     }
@@ -143,6 +151,35 @@ public class MonClavierService extends InputMethodService {
                                       : lettre.toLowerCase(Locale.ROOT));
         }
     }
+
+    private void chargerQuestionDepuisPressePapiers() {
+      ClipboardManager pressePapiers =
+          (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+
+      if (pressePapiers == null || !pressePapiers.hasPrimaryClip()) {
+          Toast.makeText(this, "Copie d'abord la question.",
+              Toast.LENGTH_LONG).show();
+          return;
+      }
+
+      ClipData clip = pressePapiers.getPrimaryClip();
+      if (clip == null || clip.getItemCount() == 0) {
+          Toast.makeText(this, "Presse-papiers vide.",
+              Toast.LENGTH_LONG).show();
+          return;
+      }
+
+      CharSequence texte = clip.getItemAt(0).coerceToText(this);
+      if (texte == null || texte.toString().trim().isEmpty()) {
+          Toast.makeText(this, "Aucune question trouvée.",
+              Toast.LENGTH_LONG).show();
+          return;
+      }
+
+      Toast.makeText(this,
+          "Question récupérée : " + texte.toString().trim(),
+          Toast.LENGTH_LONG).show();
+  }
 
     private void envoyer(String texte) {
         InputConnection ic = getCurrentInputConnection();
