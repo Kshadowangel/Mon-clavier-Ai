@@ -260,11 +260,11 @@ public class MonClavierService extends InputMethodService {
                 new Handler(Looper.getMainLooper()).post(() -> {
                     InputConnection ic = getCurrentInputConnection();
                     if (ic != null) {
-                        ClipboardManager pressePapiers =
+                        ClipboardManager gestionPressePapiers =
                             (ClipboardManager) getSystemService(
                                 Context.CLIPBOARD_SERVICE);
-                        if (pressePapiers != null) {
-                            pressePapiers.setPrimaryClip(
+                        if (gestionPressePapiers != null) {
+                            gestionPressePapiers.setPrimaryClip(
                                 ClipData.newPlainText("Réponse", reponse));
                         }
                         ic.commitText(reponse, 1);
