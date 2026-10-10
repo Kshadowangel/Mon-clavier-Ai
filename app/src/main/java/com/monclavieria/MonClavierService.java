@@ -18,6 +18,17 @@ import android.widget.Toast;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import org.json.JSONObject;
+import android.os.Handler;
+import android.os.Looper;
 
 public class MonClavierService extends InputMethodService {
     private boolean chiffres = false;
@@ -153,33 +164,109 @@ public class MonClavierService extends InputMethodService {
     }
 
     private void chargerQuestionDepuisPressePapiers() {
-      ClipboardManager pressePapiers =
-          (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+        ClipboardManager pressePapiers =
+            (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
 
-      if (pressePapiers == null || !pressePapiers.hasPrimaryClip()) {
-          Toast.makeText(this, "Copie d'abord la question.",
-              Toast.LENGTH_LONG).show();
-          return;
-      }
+        if (pressePapiers == null || !pressePapiers.hasPrimaryClip()) {
+            Toast.makeText(this, "Copie d'abord la question.",
+                Toast.LENGTH_LONG).show();
+            return;
+        }
 
-      ClipData clip = pressePapiers.getPrimaryClip();
-      if (clip == null || clip.getItemCount() == 0) {
-          Toast.makeText(this, "Presse-papiers vide.",
-              Toast.LENGTH_LONG).show();
-          return;
-      }
+        ClipData clip = pressePapiers.getPrimaryClip();
+        if (clip == null || clip.getItemCount() == 0) {
+            Toast.makeText(this, "Presse-papiers vide.",
+                Toast.LENGTH_LONG).show();
+            return;
+        }
 
-      CharSequence texte = clip.getItemAt(0).coerceToText(this);
-      if (texte == null || texte.toString().trim().isEmpty()) {
-          Toast.makeText(this, "Aucune question trouvée.",
-              Toast.LENGTH_LONG).show();
-          return;
-      }
+        CharSequence texte = clip.getItemAt(0).coerceToText(this);
+        if (texte == null || texte.toString().trim().isEmpty()) {
+            Toast.makeText(this, "Aucune question trouvée.",
+                Toast.LENGTH_LONG).show();
+            return;
+        }
 
-      Toast.makeText(this,
-          "Question récupérée : " + texte.toString().trim(),
-          Toast.LENGTH_LONG).show();
-  }
+        String question = texte.toString().trim();
+        Toast.makeText(this, "Gemini prépare la réponse...",
+            Toast.LENGTH_SHORT).show();
+
+        new Thread(() -> {
+            HttpURLConnection connexion = null;
+            try {
+                URL url = new URL("http://127.0.0.1:5000/ask");
+                connexion = (HttpURLConnection) url.openConnection();
+                connexion.setRequestMethod("POST");
+                connexion.setConnectTimeout(10000);
+                connexion.setReadTimeout(30000);
+                connexion.setDoOutput(true);
+                connexion.setRequestProperty(
+                    "Content-Type", "application/json; charset=UTF-8");
+
+                JSONObject demande = new JSONObject();
+                demande.put("message",
+                    "Réponds à cette question de quiz avec la réponse " +
+                    "la plus courte et précise possible. Question : " + question);
+
+                byte[] donnees =
+                    demande.toString().getBytes(StandardCharsets.UTF_8);
+
+                try (OutputStream sortie = connexion.getOutputStream()) {
+                    sortie.write(donnees);
+                }
+
+                int statut = connexion.getResponseCode();
+                InputStream flux = (statut >= 200 && statut < 300)
+                    ? connexion.getInputStream()
+                    : connexion.getErrorStream();
+
+                if (flux == null) {
+                    throw new IOException("Réponse HTTP " + statut);
+                }
+
+                StringBuilder contenu = new StringBuilder();
+                try (BufferedReader lecteur = new BufferedReader(
+                        new InputStreamReader(flux, StandardCharsets.UTF_8))) {
+                    String ligne;
+                    while ((ligne = lecteur.readLine()) != null) {
+                        contenu.append(ligne);
+                    }
+                }
+
+                JSONObject resultat = new JSONObject(contenu.toString());
+                String reponse = resultat.optString("reponse", "").trim();
+
+                if (statut < 200 || statut >= 300 || reponse.isEmpty()) {
+                    throw new IOException(resultat.optString(
+                        "erreur", "Erreur de l'API Gemini."));
+                }
+
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    InputConnection ic = getCurrentInputConnection();
+                    if (ic != null) {
+                        ic.commitText(reponse, 1);
+                        Toast.makeText(this, "Réponse insérée !",
+                            Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(this, "Champ de texte indisponible.",
+                            Toast.LENGTH_LONG).show();
+                    }
+                });
+
+            } catch (Exception e) {
+                String detail = e.getMessage();
+                if (detail == null || detail.isEmpty()) {
+                    detail = "Impossible de contacter l'API.";
+                }
+                final String erreur = detail;
+                new Handler(Looper.getMainLooper()).post(() ->
+                    Toast.makeText(this, "Échec : " + erreur,
+                        Toast.LENGTH_LONG).show());
+            } finally {
+                if (connexion != null) connexion.disconnect();
+            }
+        }).start();
+    }
 
     private void envoyer(String texte) {
         InputConnection ic = getCurrentInputConnection();
