@@ -250,7 +250,7 @@ public class MonClavierService extends InputMethodService {
                 }
 
                 JSONObject resultat = new JSONObject(contenu.toString());
-                String reponse = resultat.optString("reponse", "").trim();
+                String reponse = nettoyerReponse(resultat.optString("reponse", ""));
 
                 if (statut < 200 || statut >= 300 || reponse.isEmpty()) {
                     throw new IOException(resultat.optString(
@@ -260,8 +260,15 @@ public class MonClavierService extends InputMethodService {
                 new Handler(Looper.getMainLooper()).post(() -> {
                     InputConnection ic = getCurrentInputConnection();
                     if (ic != null) {
+                        ClipboardManager pressePapiers =
+                            (ClipboardManager) getSystemService(
+                                Context.CLIPBOARD_SERVICE);
+                        if (pressePapiers != null) {
+                            pressePapiers.setPrimaryClip(
+                                ClipData.newPlainText("Réponse", reponse));
+                        }
                         ic.commitText(reponse, 1);
-                        Toast.makeText(this, "Réponse insérée !",
+                        Toast.makeText(this, "Réponse insérée et copiée !",
                             Toast.LENGTH_SHORT).show();
                     } else {
                         Toast.makeText(this, "Champ de texte indisponible.",
@@ -282,6 +289,16 @@ public class MonClavierService extends InputMethodService {
                 if (connexion != null) connexion.disconnect();
             }
         }).start();
+    }
+
+    private String nettoyerReponse(String texte) {
+        if (texte == null) return "";
+        return texte
+            .replace("**", "")
+            .replace("__", "")
+            .replace("`", "")
+            .replaceAll("(?m)^\\s{0,3}#{1,6}\\s*", "")
+            .trim();
     }
 
     private void envoyer(String texte) {
