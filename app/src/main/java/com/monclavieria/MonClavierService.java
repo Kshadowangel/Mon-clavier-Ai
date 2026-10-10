@@ -127,7 +127,10 @@ public class MonClavierService extends InputMethodService {
         });
         Button quiz = creerTouche("QUIZ");
         ajouterTouche(bas, quiz, 1.5f);
-        quiz.setOnClickListener(v -> chargerQuestionDepuisPressePapiers());
+        quiz.setOnClickListener(v -> {
+            Toast.makeText(this, "Clic QUIZ détecté !", Toast.LENGTH_SHORT).show();
+            chargerQuestionDepuisPressePapiers();
+        });
 
         clavier.addView(bas);
         return clavier;
