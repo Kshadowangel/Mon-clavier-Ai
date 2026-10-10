@@ -208,8 +208,21 @@ public class MonClavierService extends InputMethodService {
 
                 JSONObject demande = new JSONObject();
                 demande.put("message",
-                    "Réponds à cette question de quiz avec la réponse " +
-                    "la plus courte et précise possible. Question : " + question);
+                    "Tu es un assistant intelligent spécialisé dans les questions de quiz, " +
+"les connaissances générales, les définitions et les explications. " +
+"Adapte la longueur de ta réponse à la question posée. " +
+"Pour une question simple, donne une réponse courte, exacte et directe. " +
+"Pour une définition, donne une définition claire, complète et facile à comprendre. " +
+"Pour une demande d'explication, développe suffisamment la réponse, " +
+"en présentant les idées dans un ordre logique et en ajoutant des exemples utiles si nécessaire. " +
+"Pour une question complexe, structure ta réponse pour qu'elle soit facile à comprendre. " +
+"Respecte précisément ce que la question demande. " +
+"N'invente jamais de faits, de noms, de dates ou de références. " +
+"Si tu ne connais pas la réponse ou si tu as un doute important, " +
+"signale-le honnêtement. " +
+"Évite les introductions inutiles et les répétitions. " +
+"Question : " + question
+                    );
 
                 byte[] donnees =
                     demande.toString().getBytes(StandardCharsets.UTF_8);
