@@ -203,7 +203,7 @@ public class MonClavierService extends InputMethodService {
                 params.setMargins(dp(2), dp(2), dp(2), dp(2));
                 rang.addView(touche, params);
                 if (!chiffres && symbole.length() == 1
-                        && Character.isLetter(symbole.charAt(0))) {
+                            && Character.isLetter(symbole.charAt(0))) {
                     touchesLettres.add(touche);
                 }
                 if (symbole.equals("⇧")) toucheMaj = touche;
@@ -282,6 +282,32 @@ public class MonClavierService extends InputMethodService {
                     });
                 } else {
                     touche.setOnClickListener(v -> traiterTouche(symbole));
+
+                    if (!chiffres && symbole.length() == 1
+                            && Character.isLetter(symbole.charAt(0))) {
+                        touche.setOnLongClickListener(v -> {
+                            char lettre = majuscules
+                                ? Character.toUpperCase(symbole.charAt(0))
+                                : symbole.charAt(0);
+                            String[] variantes = variantesAccent(lettre);
+                            if (variantes.length == 0) return false;
+
+                            PopupMenu menu = new PopupMenu(this, v);
+                            for (String variante : variantes) {
+                                menu.getMenu().add(variante);
+                            }
+                            menu.setOnMenuItemClickListener(item -> {
+                                envoyer(item.getTitle().toString());
+                                if (majuscules) {
+                                    majuscules = false;
+                                    actualiserMajuscules();
+                                }
+                                return true;
+                            });
+                            menu.show();
+                            return true;
+                        });
+                    }
                 }
 
             }
@@ -337,6 +363,32 @@ public class MonClavierService extends InputMethodService {
         return clavier;
     }
 
+
+    private String[] variantesAccent(char lettre) {
+        boolean maj = Character.isUpperCase(lettre);
+        char base = Character.toLowerCase(lettre);
+        String[] variantes;
+
+        switch (base) {
+            case 'a': variantes = new String[]{"à", "â", "ä", "á", "ã"}; break;
+            case 'e': variantes = new String[]{"é", "è", "ê", "ë"}; break;
+            case 'i': variantes = new String[]{"î", "ï", "í", "ì"}; break;
+            case 'o': variantes = new String[]{"ô", "ö", "ó", "ò", "õ"}; break;
+            case 'u': variantes = new String[]{"ù", "û", "ü", "ú"}; break;
+            case 'c': variantes = new String[]{"ç"}; break;
+            case 'n': variantes = new String[]{"ñ"}; break;
+            case 'y': variantes = new String[]{"ÿ", "ý"}; break;
+            default: return new String[0];
+        }
+
+        if (maj) {
+            for (int i = 0; i < variantes.length; i++) {
+                variantes[i] = variantes[i].toUpperCase(Locale.ROOT);
+            }
+        }
+        return variantes;
+    }
+
     private void traiterTouche(String touche) {
         if (touche.equals("⇧")) {
             majuscules = !majuscules;
@@ -344,7 +396,12 @@ public class MonClavierService extends InputMethodService {
         } else if (touche.equals("⌫")) {
             InputConnection ic = getCurrentInputConnection();
             if (ic != null) {
-                ic.deleteSurroundingText(1, 0);
+                CharSequence selection = ic.getSelectedText(0);
+                if (selection != null && selection.length() > 0) {
+                    ic.commitText("", 1);
+                } else {
+                    ic.deleteSurroundingText(1, 0);
+                }
                 actualiserSuggestions();
             }
         } else {
