@@ -120,6 +120,29 @@ public class MonClavierService extends InputMethodService {
         return creerClavier();
     }
 
+    @Override
+    public void onStartInput(EditorInfo attribute, boolean restarting) {
+        super.onStartInput(attribute, restarting);
+        generationRequeteIA++;
+        derniereQuestionEnvoyee = "";
+        dernierModeEnvoye = "";
+        dernierHorodatageEnvoi = 0L;
+    }
+
+    @Override
+    public void onFinishInput() {
+        generationRequeteIA++;
+
+        if (actualisationSuggestionsEnAttente != null) {
+            gestionnaireSuggestions.removeCallbacks(
+                actualisationSuggestionsEnAttente
+            );
+            actualisationSuggestionsEnAttente = null;
+        }
+
+        super.onFinishInput();
+    }
+
     private View creerClavier() {
         touchesLettres.clear();
         clavier = new LinearLayout(this);
@@ -664,6 +687,7 @@ public class MonClavierService extends InputMethodService {
         dernierModeEnvoye = mode;
         dernierHorodatageEnvoi = maintenant;
         final long idRequete = ++generationRequeteIA;
+        final InputConnection connexionCible = getCurrentInputConnection();
 
         Toast.makeText(this, "Gemini prépare la réponse...",
             Toast.LENGTH_SHORT).show();
@@ -754,6 +778,14 @@ public class MonClavierService extends InputMethodService {
                 new Handler(Looper.getMainLooper()).post(() -> {
                     if (idRequete != generationRequeteIA) return;
                     InputConnection ic = getCurrentInputConnection();
+
+                    if (ic != connexionCible) {
+                        Toast.makeText(this,
+                            "Le champ a changé : réponse non insérée.",
+                            Toast.LENGTH_LONG).show();
+                        return;
+                    }
+
                     if (ic != null) {
                         ClipboardManager gestionPressePapiers =
                             (ClipboardManager) getSystemService(
