@@ -82,7 +82,57 @@ public class MonClavierService extends InputMethodService {
                     touchesLettres.add(touche);
                 }
                 if (symbole.equals("⇧")) toucheMaj = touche;
-                touche.setOnClickListener(v -> traiterTouche(symbole));
+                if (symbole.equals("⌫")) {
+                    touche.setOnTouchListener((vue, evenement) -> {
+                        int action = evenement.getAction();
+
+                        if (action == android.view.MotionEvent.ACTION_DOWN) {
+                            vue.performHapticFeedback(
+                                android.view.HapticFeedbackConstants.KEYBOARD_TAP
+                            );
+                            traiterTouche("⌫");
+
+                            Handler gestionnaire =
+                                new Handler(Looper.getMainLooper());
+                            boolean[] appuye = {true};
+
+                            Runnable repetition = new Runnable() {
+                                @Override
+                                public void run() {
+                                    if (appuye[0]) {
+                                        traiterTouche("⌫");
+                                        gestionnaire.postDelayed(this, 70);
+                                    }
+                                }
+                            };
+
+                            vue.setTag(new Object[] {
+                                gestionnaire, repetition, appuye
+                            });
+                            gestionnaire.postDelayed(repetition, 350);
+                            return true;
+                        }
+
+                        if (action == android.view.MotionEvent.ACTION_UP
+                                || action == android.view.MotionEvent.ACTION_CANCEL) {
+                            Object objet = vue.getTag();
+                            if (objet instanceof Object[]) {
+                                Object[] donnees = (Object[]) objet;
+                                ((boolean[]) donnees[2])[0] = false;
+                                ((Handler) donnees[0]).removeCallbacks(
+                                    (Runnable) donnees[1]
+                                );
+                            }
+                            vue.setTag(null);
+                            return true;
+                        }
+
+                        return true;
+                    });
+                } else {
+                    touche.setOnClickListener(v -> traiterTouche(symbole));
+                }
+
             }
             clavier.addView(rang);
         }
