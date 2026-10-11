@@ -1,0 +1,16 @@
+# Fichiers de compilation
+.gradle/
+build/
+app/build/
+local.properties
+
+# Sauvegardes locales
+*.bak
+*.bak*
+*.avant_*
+*_backup.java
+*_avant_*.java
+
+# Fichiers temporaires
+*.tmp
+*.log

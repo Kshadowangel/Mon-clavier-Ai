@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_description">Permet à MonClavierIA de lire localement les textes accessibles de l’écran pour répondre aux questions lorsque vous appuyez sur QUIZ. Le texte est envoyé à l’API uniquement après cette action.</string>
+</resources>

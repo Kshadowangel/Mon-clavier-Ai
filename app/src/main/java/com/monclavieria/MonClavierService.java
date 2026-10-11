@@ -3,6 +3,7 @@ package com.monclavieria;
 import android.content.ClipboardManager;
 import android.content.ClipData;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -14,6 +15,7 @@ import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
 import android.widget.Button;
 import android.widget.LinearLayout;
+import android.widget.PopupMenu;
 import android.widget.Toast;
 import java.util.ArrayList;
 import java.util.List;
@@ -116,7 +118,13 @@ public class MonClavierService extends InputMethodService {
         clavier = new LinearLayout(this);
         clavier.setOrientation(LinearLayout.VERTICAL);
         clavier.setPadding(dp(3), dp(3), dp(3), dp(3));
-        clavier.setBackgroundColor(Color.rgb(225, 230, 238));
+        boolean themeSombre = getSharedPreferences(
+            "clavier_preferences", MODE_PRIVATE
+        ).getString("theme", "clair").equals("sombre");
+
+        clavier.setBackgroundColor(themeSombre
+            ? Color.rgb(30, 32, 38)
+            : Color.rgb(225, 230, 238));
 
         // Barre supérieure professionnelle
         LinearLayout barreSuperieure = new LinearLayout(this);
@@ -134,12 +142,21 @@ public class MonClavierService extends InputMethodService {
         Button raccourciIA = creerTouche("IA");
         raccourciIA.setTextSize(13);
         ajouterTouche(barreSuperieure, raccourciIA, 1f);
-        raccourciIA.setOnClickListener(v -> chargerQuestionDepuisPressePapiers());
+        raccourciIA.setOnClickListener(v -> afficherMenuIA(v));
 
         Button raccourciQuiz = creerTouche("QUIZ");
         raccourciQuiz.setTextSize(13);
         ajouterTouche(barreSuperieure, raccourciQuiz, 1.2f);
-        raccourciQuiz.setOnClickListener(v -> chargerQuestionDepuisPressePapiers());
+        raccourciQuiz.setOnClickListener(v -> chargerQuestionDepuisEcran());
+
+        Button parametres = creerTouche("⚙");
+        parametres.setTextSize(17);
+        ajouterTouche(barreSuperieure, parametres, 0.8f);
+        parametres.setOnClickListener(v -> {
+            Intent intention = new Intent(this, ParametresActivity.class);
+            intention.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intention);
+        });
 
         Button fermerClavier = creerTouche("⌄");
         fermerClavier.setTextSize(18);
@@ -180,7 +197,9 @@ public class MonClavierService extends InputMethodService {
                 }
                 Button touche = creerTouche(affiche);
                 LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                    0, dp(44), 1f);
+                    0, dp(getSharedPreferences(
+                        "clavier_preferences", MODE_PRIVATE
+                    ).getInt("keyboard_height", 44)), 1f);
                 params.setMargins(dp(2), dp(2), dp(2), dp(2));
                 rang.addView(touche, params);
                 if (!chiffres && symbole.length() == 1
@@ -193,9 +212,11 @@ public class MonClavierService extends InputMethodService {
                         int action = evenement.getAction();
 
                         if (action == android.view.MotionEvent.ACTION_DOWN) {
-                            vue.performHapticFeedback(
-                                android.view.HapticFeedbackConstants.KEYBOARD_TAP
-                            );
+                            if (getSharedPreferences("clavier_preferences", MODE_PRIVATE).getBoolean("vibration", true)) {
+                                vue.performHapticFeedback(
+                                    android.view.HapticFeedbackConstants.KEYBOARD_TAP
+                                );
+                            }
                             vue.setTag(new Object[] {
                                 Float.valueOf(evenement.getX()),
                                 Boolean.FALSE,
@@ -464,31 +485,82 @@ public class MonClavierService extends InputMethodService {
         }
     }
 
+    private void afficherMenuIA(View ancre) {
+        PopupMenu menu = new PopupMenu(this, ancre);
+        menu.getMenu().add("Répondre");
+        menu.getMenu().add("Corriger");
+        menu.getMenu().add("Reformuler");
+        menu.setOnMenuItemClickListener(item -> {
+            String choix = item.getTitle().toString();
+            String mode = choix.equals("Corriger") ? "corriger"
+                : choix.equals("Reformuler") ? "reformuler" : "repondre";
+            chargerQuestionDepuisPressePapiers(mode);
+            return true;
+        });
+        menu.show();
+    }
+
+    private void chargerQuestionDepuisEcran() {
+        android.content.SharedPreferences preferences =
+            getSharedPreferences("clavier_preferences", MODE_PRIVATE);
+
+        String texteEcran = preferences.getString(
+            "derniere_question_ecran", "");
+        long capture = preferences.getLong(
+            "horodatage_question_ecran", 0L);
+        long age = System.currentTimeMillis() - capture;
+
+        if (texteEcran != null && !texteEcran.trim().isEmpty()
+                && capture > 0 && age >= 0 && age <= 120000) {
+            chargerQuestionDepuisPressePapiers("quiz_ecran", texteEcran);
+        } else {
+            Toast.makeText(this,
+                "Capture écran indisponible. Copie la question puis réessaie.",
+                Toast.LENGTH_LONG).show();
+            chargerQuestionDepuisPressePapiers("repondre");
+        }
+    }
+
     private void chargerQuestionDepuisPressePapiers() {
+        chargerQuestionDepuisPressePapiers("repondre");
+    }
+
+    private void chargerQuestionDepuisPressePapiers(String mode) {
+        chargerQuestionDepuisPressePapiers(mode, null);
+    }
+
+    private void chargerQuestionDepuisPressePapiers(
+            String mode, String texteForce) {
         ClipboardManager pressePapiers =
             (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
 
-        if (pressePapiers == null || !pressePapiers.hasPrimaryClip()) {
-            Toast.makeText(this, "Copie d'abord la question.",
-                Toast.LENGTH_LONG).show();
-            return;
-        }
+        String question;
 
-        ClipData clip = pressePapiers.getPrimaryClip();
-        if (clip == null || clip.getItemCount() == 0) {
-            Toast.makeText(this, "Presse-papiers vide.",
-                Toast.LENGTH_LONG).show();
-            return;
-        }
+        if (texteForce != null && !texteForce.trim().isEmpty()) {
+            question = texteForce.trim();
+        } else {
+            if (pressePapiers == null || !pressePapiers.hasPrimaryClip()) {
+                Toast.makeText(this, "Copie d'abord la question.",
+                    Toast.LENGTH_LONG).show();
+                return;
+            }
 
-        CharSequence texte = clip.getItemAt(0).coerceToText(this);
-        if (texte == null || texte.toString().trim().isEmpty()) {
-            Toast.makeText(this, "Aucune question trouvée.",
-                Toast.LENGTH_LONG).show();
-            return;
-        }
+            ClipData clip = pressePapiers.getPrimaryClip();
+            if (clip == null || clip.getItemCount() == 0) {
+                Toast.makeText(this, "Presse-papiers vide.",
+                    Toast.LENGTH_LONG).show();
+                return;
+            }
 
-        String question = texte.toString().trim();
+            CharSequence texte = clip.getItemAt(0).coerceToText(this);
+            if (texte == null || texte.toString().trim().isEmpty()) {
+                Toast.makeText(this, "Aucune question trouvée.",
+                    Toast.LENGTH_LONG).show();
+                return;
+            }
+
+            question = texte.toString().trim();
+        }
         Toast.makeText(this, "Gemini prépare la réponse...",
             Toast.LENGTH_SHORT).show();
 
@@ -505,22 +577,40 @@ public class MonClavierService extends InputMethodService {
                     "Content-Type", "application/json; charset=UTF-8");
 
                 JSONObject demande = new JSONObject();
-                demande.put("message",
-                    "Tu es un assistant intelligent spécialisé dans les questions de quiz, " +
-"les connaissances générales, les définitions et les explications. " +
-"Adapte la longueur de ta réponse à la question posée. " +
-"Pour une question simple, donne une réponse courte, exacte et directe. " +
-"Pour une définition, donne une définition claire, complète et facile à comprendre. " +
-"Pour une demande d'explication, développe suffisamment la réponse, " +
-"en présentant les idées dans un ordre logique et en ajoutant des exemples utiles si nécessaire. " +
-"Pour une question complexe, structure ta réponse pour qu'elle soit facile à comprendre. " +
-"Respecte précisément ce que la question demande. " +
-"N'invente jamais de faits, de noms, de dates ou de références. " +
-"Si tu ne connais pas la réponse ou si tu as un doute important, " +
-"signale-le honnêtement. " +
-"Évite les introductions inutiles et les répétitions. " +
-"Question : " + question
-                    );
+                String instruction;
+                if (mode.equals("corriger")) {
+                    instruction =
+                        "Corrige uniquement l'orthographe, la grammaire et la ponctuation. " +
+                        "Conserve le sens, le ton et la langue du texte. " +
+                        "Retourne uniquement le texte corrigé, sans introduction ni Markdown. " +
+                        "Texte : " + question;
+                } else if (mode.equals("quiz_ecran")) {
+                    instruction =
+                        "Le texte suivant provient de l'écran d'une application. " +
+                        "Identifie la question de quiz et ignore les menus, " +
+                        "boutons et textes sans rapport. Si plusieurs questions " +
+                        "sont visibles, réponds à la plus clairement posée. " +
+                        "Donne uniquement la réponse utile, sans Markdown, " +
+                        "sans astérisques et sans introduction. Si la question " +
+                        "est ambiguë, indique-le honnêtement. Texte écran : " +
+                        question;
+                } else if (mode.equals("reformuler")) {
+                    instruction =
+                        "Reformule ce texte de manière naturelle, claire et fluide. " +
+                        "Conserve fidèlement le sens et la langue d'origine. " +
+                        "Retourne uniquement le texte reformulé, sans introduction ni Markdown. " +
+                        "Texte : " + question;
+                } else {
+                    instruction =
+                        "Tu es un assistant intelligent spécialisé dans les quiz, " +
+                        "les connaissances générales, les définitions et les explications. " +
+                        "Réponds précisément à la question. Adapte la longueur au besoin. " +
+                        "N'invente pas de faits et signale honnêtement les doutes importants. " +
+                        "Évite les introductions inutiles et les répétitions. " +
+                        "Retourne une réponse propre, sans Markdown ni astérisques. " +
+                        "Question : " + question;
+                }
+                demande.put("message", instruction);
 
                 byte[] donnees =
                     demande.toString().getBytes(StandardCharsets.UTF_8);
@@ -682,7 +772,12 @@ public class MonClavierService extends InputMethodService {
         b.setAllCaps(false);
         b.setTextSize(16);
         b.setTypeface(Typeface.DEFAULT, Typeface.NORMAL);
-        b.setTextColor(Color.rgb(30, 35, 45));
+        boolean themeSombre = getSharedPreferences(
+            "clavier_preferences", MODE_PRIVATE
+        ).getString("theme", "clair").equals("sombre");
+        b.setTextColor(themeSombre
+            ? Color.rgb(240, 242, 245)
+            : Color.rgb(30, 35, 45));
         b.setPadding(0, 0, 0, 0);
         b.setMinHeight(0);
         b.setMinimumHeight(0);
@@ -696,9 +791,13 @@ public class MonClavierService extends InputMethodService {
             int action = evenement.getAction();
 
             if (action == android.view.MotionEvent.ACTION_DOWN) {
-                vue.performHapticFeedback(
-                    android.view.HapticFeedbackConstants.KEYBOARD_TAP
-                );
+                if (getSharedPreferences(
+                        "clavier_preferences", MODE_PRIVATE
+                    ).getBoolean("vibration", true)) {
+                    vue.performHapticFeedback(
+                        android.view.HapticFeedbackConstants.KEYBOARD_TAP
+                    );
+                }
                 vue.setAlpha(0.72f);
             } else if (action == android.view.MotionEvent.ACTION_UP
                     || action == android.view.MotionEvent.ACTION_CANCEL) {
@@ -712,16 +811,27 @@ public class MonClavierService extends InputMethodService {
     }
 
     private GradientDrawable fondTouche() {
+        boolean themeSombre = getSharedPreferences(
+            "clavier_preferences", MODE_PRIVATE
+        ).getString("theme", "clair").equals("sombre");
+
         GradientDrawable fond = new GradientDrawable();
-        fond.setColor(Color.WHITE);
+        fond.setColor(themeSombre
+            ? Color.rgb(54, 58, 68)
+            : Color.WHITE);
         fond.setCornerRadius(dp(7));
-        fond.setStroke(dp(1), Color.rgb(205, 212, 222));
+        fond.setStroke(dp(1), themeSombre
+            ? Color.rgb(75, 80, 92)
+            : Color.rgb(205, 212, 222));
         return fond;
     }
 
     private void ajouterTouche(LinearLayout rang, Button touche, float poids) {
+        int hauteurTouche = getSharedPreferences(
+            "clavier_preferences", MODE_PRIVATE
+        ).getInt("keyboard_height", 44);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-            0, dp(44), poids);
+            0, dp(hauteurTouche), poids);
         params.setMargins(dp(2), dp(2), dp(2), dp(2));
         rang.addView(touche, params);
     }
