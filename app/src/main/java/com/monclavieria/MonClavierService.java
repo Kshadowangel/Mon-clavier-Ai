@@ -320,6 +320,17 @@ public class MonClavierService extends InputMethodService {
         b.setMinimumWidth(0);
         b.setBackground(fondTouche());
         b.setGravity(Gravity.CENTER);
+
+        // Retour tactile immédiat au contact du doigt.
+        b.setOnTouchListener((vue, evenement) -> {
+            if (evenement.getAction() == android.view.MotionEvent.ACTION_DOWN) {
+                vue.performHapticFeedback(
+                    android.view.HapticFeedbackConstants.KEYBOARD_TAP
+                );
+            }
+            return false;
+        });
+
         return b;
     }
 
