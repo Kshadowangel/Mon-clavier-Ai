@@ -47,6 +47,13 @@ public class MonClavierService extends InputMethodService {
     private String derniereQuestionEnvoyee = "";
     private String dernierModeEnvoye = "";
 
+    private boolean quizAutomatiqueActif = false;
+    private String derniereCaptureQuizTraitee = "";
+    private final Handler gestionnaireQuiz =
+        new Handler(Looper.getMainLooper());
+    private Runnable surveillanceQuiz;
+
+
 
     private final String[] dictionnaireSuggestions = {
         "bonjour", "bonsoir", "bonne", "bon", "beaucoup", "besoin",
@@ -177,7 +184,7 @@ public class MonClavierService extends InputMethodService {
         Button raccourciQuiz = creerTouche("QUIZ");
         raccourciQuiz.setTextSize(13);
         ajouterTouche(barreSuperieure, raccourciQuiz, 1.2f);
-        raccourciQuiz.setOnClickListener(v -> chargerQuestionDepuisEcran());
+        raccourciQuiz.setOnClickListener(v -> basculerQuizAutomatique());
 
         Button parametres = creerTouche("⚙");
         parametres.setTextSize(17);
@@ -613,6 +620,79 @@ public class MonClavierService extends InputMethodService {
             return true;
         });
         menu.show();
+    }
+
+
+    private void basculerQuizAutomatique() {
+        android.content.SharedPreferences prefs =
+            getSharedPreferences("clavier_preferences", MODE_PRIVATE);
+
+        quizAutomatiqueActif = !prefs.getBoolean(
+            "quiz_automatique_actif", false);
+
+        prefs.edit()
+            .putBoolean("quiz_automatique_actif", quizAutomatiqueActif)
+            .apply();
+
+        if (quizAutomatiqueActif) {
+            derniereCaptureQuizTraitee = "";
+            Toast.makeText(this,
+                "QUIZ AUTO activé : affiche une question et garde le clavier ouvert.",
+                Toast.LENGTH_LONG).show();
+            demarrerSurveillanceQuiz();
+        } else {
+            if (surveillanceQuiz != null) {
+                gestionnaireQuiz.removeCallbacks(surveillanceQuiz);
+            }
+            Toast.makeText(this, "QUIZ AUTO désactivé.",
+                Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void demarrerSurveillanceQuiz() {
+        if (surveillanceQuiz != null) {
+            gestionnaireQuiz.removeCallbacks(surveillanceQuiz);
+        }
+
+        surveillanceQuiz = new Runnable() {
+            @Override
+            public void run() {
+                android.content.SharedPreferences prefs =
+                    getSharedPreferences("clavier_preferences", MODE_PRIVATE);
+
+                if (!prefs.getBoolean("quiz_automatique_actif", false)) {
+                    quizAutomatiqueActif = false;
+                    return;
+                }
+
+                quizAutomatiqueActif = true;
+
+                String capture = prefs.getString(
+                    "derniere_question_ecran", "");
+                long horodatage = prefs.getLong(
+                    "horodatage_question_ecran", 0L);
+                long age = System.currentTimeMillis() - horodatage;
+
+                if (capture != null
+                        && capture.trim().length() >= 15
+                        && horodatage > 0
+                        && age >= 1000
+                        && age <= 30000
+                        && !capture.equals(derniereCaptureQuizTraitee)
+                        && getCurrentInputConnection() != null) {
+
+                    // Marquer la capture avant la requête pour éviter
+                    // de soumettre plusieurs fois le même écran.
+                    derniereCaptureQuizTraitee = capture;
+                    chargerQuestionDepuisPressePapiers(
+                        "quiz_ecran", capture);
+                }
+
+                gestionnaireQuiz.postDelayed(this, 400);
+            }
+        };
+
+        gestionnaireQuiz.post(surveillanceQuiz);
     }
 
     private void chargerQuestionDepuisEcran() {
