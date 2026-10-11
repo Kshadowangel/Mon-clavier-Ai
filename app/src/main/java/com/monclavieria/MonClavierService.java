@@ -37,6 +37,29 @@ public class MonClavierService extends InputMethodService {
     private final List<Button> touchesLettres = new ArrayList<>();
     private Button toucheMaj;
     private Button toucheMode;
+    private LinearLayout barreSuggestions;
+
+    private final String[] dictionnaireSuggestions = {
+        "bonjour", "bonsoir", "bonne", "bon", "beaucoup", "besoin",
+        "bien", "bientôt", "bienvenue", "comment", "comme", "comprendre",
+        "compte", "coucou", "cette", "cela", "ceci", "c'est",
+        "dans", "demain", "depuis", "dernier", "des", "deux",
+        "dire", "donc", "d'accord", "encore", "enfin", "ensemble",
+        "est", "être", "et", "excuse", "exactement", "faire",
+        "fait", "famille", "femme", "félicitations", "fois", "français",
+        "grand", "grande", "groupe", "génial", "gens", "jour",
+        "journée", "jamais", "je", "j'aime", "j'espère", "j'arrive",
+        "maintenant", "mais", "merci", "meilleur", "même", "message",
+        "mon", "monde", "mot", "moi", "non", "notre",
+        "nouveau", "nouvelle", "nous", "oui", "parce", "parfait",
+        "parler", "partie", "personne", "petit", "petite", "peut",
+        "plus", "pour", "pourquoi", "pourrais", "premier", "projet",
+        "quel", "quelle", "question", "qui", "quoi", "rapidement",
+        "rien", "salut", "savoir", "seulement", "si", "soir",
+        "super", "suis", "sur", "surtout", "temps", "toujours",
+        "tout", "très", "travail", "trouver", "tu", "vraiment",
+        "venir", "votre", "vous", "vouloir", "voyage", "ça"
+    };
 
     @Override
     public View onCreateInputView() {
@@ -49,6 +72,13 @@ public class MonClavierService extends InputMethodService {
         clavier.setOrientation(LinearLayout.VERTICAL);
         clavier.setPadding(dp(3), dp(3), dp(3), dp(3));
         clavier.setBackgroundColor(Color.rgb(225, 230, 238));
+
+        barreSuggestions = new LinearLayout(this);
+        barreSuggestions.setOrientation(LinearLayout.HORIZONTAL);
+        barreSuggestions.setGravity(Gravity.CENTER);
+        barreSuggestions.setVisibility(View.GONE);
+        clavier.addView(barreSuggestions,
+            new LinearLayout.LayoutParams(-1, dp(36)));
 
         String[][] lettres = {
             {"q","w","e","r","t","y","u","i","o","p"},
@@ -192,7 +222,10 @@ public class MonClavierService extends InputMethodService {
             actualiserMajuscules();
         } else if (touche.equals("⌫")) {
             InputConnection ic = getCurrentInputConnection();
-            if (ic != null) ic.deleteSurroundingText(1, 0);
+            if (ic != null) {
+                ic.deleteSurroundingText(1, 0);
+                actualiserSuggestions();
+            }
         } else {
             String caractere = touche;
             if (!chiffres && majuscules && caractere.length() == 1
@@ -202,6 +235,92 @@ public class MonClavierService extends InputMethodService {
                 actualiserMajuscules();
             }
             envoyer(caractere);
+        }
+    }
+
+    private void actualiserSuggestions() {
+        if (barreSuggestions == null) return;
+
+        barreSuggestions.removeAllViews();
+
+        InputConnection ic = getCurrentInputConnection();
+        if (ic == null) {
+            barreSuggestions.setVisibility(View.GONE);
+            return;
+        }
+
+        CharSequence texte = ic.getTextBeforeCursor(80, 0);
+        if (texte == null || texte.length() == 0) {
+            barreSuggestions.setVisibility(View.GONE);
+            return;
+        }
+
+        String avant = texte.toString();
+        int debut = avant.length();
+
+        while (debut > 0) {
+            char c = avant.charAt(debut - 1);
+            if (Character.isLetter(c)) {
+                debut--;
+            } else {
+                break;
+            }
+        }
+
+        String prefixe = avant.substring(debut).toLowerCase(Locale.ROOT);
+        if (prefixe.length() < 2) {
+            barreSuggestions.setVisibility(View.GONE);
+            return;
+        }
+
+        List<String> propositions = new ArrayList<>();
+        for (String mot : dictionnaireSuggestions) {
+            if (mot.toLowerCase(Locale.ROOT).startsWith(prefixe)
+                    && !mot.equalsIgnoreCase(prefixe)
+                    && !propositions.contains(mot)) {
+                propositions.add(mot);
+                if (propositions.size() == 3) break;
+            }
+        }
+
+        if (propositions.isEmpty()) {
+            barreSuggestions.setVisibility(View.GONE);
+            return;
+        }
+
+        barreSuggestions.setVisibility(View.VISIBLE);
+
+        for (String mot : propositions) {
+            Button proposition = creerTouche(mot);
+            proposition.setTextSize(13);
+            LinearLayout.LayoutParams params =
+                new LinearLayout.LayoutParams(0, dp(32), 1f);
+            params.setMargins(dp(2), 0, dp(2), 0);
+            barreSuggestions.addView(proposition, params);
+
+            proposition.setOnClickListener(v -> {
+                InputConnection connexion = getCurrentInputConnection();
+                if (connexion == null) return;
+
+                CharSequence contenu = connexion.getTextBeforeCursor(80, 0);
+                if (contenu == null) return;
+
+                String courant = contenu.toString();
+                int position = courant.length();
+
+                while (position > 0
+                        && Character.isLetter(courant.charAt(position - 1))) {
+                    position--;
+                }
+
+                if (position < courant.length()) {
+                    connexion.deleteSurroundingText(
+                        courant.length() - position, 0);
+                    connexion.commitText(mot + " ", 1);
+                }
+
+                actualiserSuggestions();
+            });
         }
     }
 
@@ -353,7 +472,10 @@ public class MonClavierService extends InputMethodService {
 
     private void envoyer(String texte) {
         InputConnection ic = getCurrentInputConnection();
-        if (ic != null) ic.commitText(texte, 1);
+        if (ic != null) {
+            ic.commitText(texte, 1);
+            actualiserSuggestions();
+        }
     }
 
     private Button creerTouche(String texte) {
