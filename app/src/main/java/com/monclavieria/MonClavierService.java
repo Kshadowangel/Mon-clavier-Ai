@@ -626,7 +626,7 @@ public class MonClavierService extends InputMethodService {
         long age = System.currentTimeMillis() - capture;
 
         if (texteEcran != null && !texteEcran.trim().isEmpty()
-                && capture > 0 && age >= 0 && age <= 120000) {
+                && capture > 0 && age >= 0 && age <= 30000) {
             chargerQuestionDepuisPressePapiers("quiz_ecran", texteEcran);
         } else {
             Toast.makeText(this,

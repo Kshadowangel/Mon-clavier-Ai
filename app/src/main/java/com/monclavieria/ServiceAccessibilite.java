@@ -36,8 +36,15 @@ public class ServiceAccessibilite extends AccessibilityService {
 
         String capture = texte.toString().trim();
 
-        // Ne pas remplacer une capture utile par un écran vide.
-        if (capture.length() < 15) return;
+        // Invalider l'ancienne capture si le nouvel écran est vide.
+        if (capture.length() < 15) {
+            getSharedPreferences("clavier_preferences", MODE_PRIVATE)
+                .edit()
+                .remove("derniere_question_ecran")
+                .putLong("horodatage_question_ecran", 0L)
+                .apply();
+            return;
+        }
 
         if (capture.length() > LIMITE_TEXTE) {
             capture = capture.substring(0, LIMITE_TEXTE);
