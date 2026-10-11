@@ -40,6 +40,11 @@ public class MonClavierService extends InputMethodService {
     private Button toucheMaj;
     private Button toucheMode;
     private LinearLayout barreSuggestions;
+    private long generationRequeteIA = 0L;
+    private long dernierHorodatageEnvoi = 0L;
+    private String derniereQuestionEnvoyee = "";
+    private String dernierModeEnvoye = "";
+
 
     private final String[] dictionnaireSuggestions = {
         "bonjour", "bonsoir", "bonne", "bon", "beaucoup", "besoin",
@@ -370,14 +375,29 @@ public class MonClavierService extends InputMethodService {
         String[] variantes;
 
         switch (base) {
-            case 'a': variantes = new String[]{"à", "â", "ä", "á", "ã"}; break;
-            case 'e': variantes = new String[]{"é", "è", "ê", "ë"}; break;
-            case 'i': variantes = new String[]{"î", "ï", "í", "ì"}; break;
-            case 'o': variantes = new String[]{"ô", "ö", "ó", "ò", "õ"}; break;
-            case 'u': variantes = new String[]{"ù", "û", "ü", "ú"}; break;
-            case 'c': variantes = new String[]{"ç"}; break;
-            case 'n': variantes = new String[]{"ñ"}; break;
-            case 'y': variantes = new String[]{"ÿ", "ý"}; break;
+            case 'a': variantes = new String[]{"à","â","ä","á","ã","å","ā","ă","ą"}; break;
+            case 'b': variantes = new String[]{"ḃ","ƀ"}; break;
+            case 'c': variantes = new String[]{"ç","ć","č","ĉ","ċ"}; break;
+            case 'd': variantes = new String[]{"ď","đ","ḋ"}; break;
+            case 'e': variantes = new String[]{"é","è","ê","ë","ē","ĕ","ė","ę","ě"}; break;
+            case 'f': variantes = new String[]{"ƒ"}; break;
+            case 'g': variantes = new String[]{"ĝ","ğ","ġ","ģ"}; break;
+            case 'h': variantes = new String[]{"ĥ","ħ","ḧ"}; break;
+            case 'i': variantes = new String[]{"î","ï","í","ì","ī","ĭ","į","ı"}; break;
+            case 'j': variantes = new String[]{"ĵ"}; break;
+            case 'k': variantes = new String[]{"ķ","ḱ"}; break;
+            case 'l': variantes = new String[]{"ĺ","ļ","ľ","ł"}; break;
+            case 'm': variantes = new String[]{"ḿ","ṁ"}; break;
+            case 'n': variantes = new String[]{"ñ","ń","ņ","ň"}; break;
+            case 'o': variantes = new String[]{"ô","ö","ó","ò","õ","ø","ō","ő"}; break;
+            case 'p': variantes = new String[]{"ṕ","ṗ"}; break;
+            case 'r': variantes = new String[]{"ŕ","ŗ","ř"}; break;
+            case 's': variantes = new String[]{"ś","ŝ","ş","š"}; break;
+            case 't': variantes = new String[]{"ţ","ť","ṫ","þ"}; break;
+            case 'u': variantes = new String[]{"ù","û","ü","ú","ū","ŭ","ů","ű","ų"}; break;
+            case 'w': variantes = new String[]{"ŵ","ẁ","ẃ","ẅ"}; break;
+            case 'y': variantes = new String[]{"ÿ","ý","ŷ"}; break;
+            case 'z': variantes = new String[]{"ź","ż","ž"}; break;
             default: return new String[0];
         }
 
@@ -396,11 +416,16 @@ public class MonClavierService extends InputMethodService {
         } else if (touche.equals("⌫")) {
             InputConnection ic = getCurrentInputConnection();
             if (ic != null) {
-                CharSequence selection = ic.getSelectedText(0);
-                if (selection != null && selection.length() > 0) {
-                    ic.commitText("", 1);
-                } else {
-                    ic.deleteSurroundingText(1, 0);
+                ic.beginBatchEdit();
+                try {
+                    CharSequence selection = ic.getSelectedText(0);
+                    if (selection != null && selection.length() > 0) {
+                        ic.commitText("", 1);
+                    } else {
+                        ic.deleteSurroundingText(1, 0);
+                    }
+                } finally {
+                    ic.endBatchEdit();
                 }
                 actualiserSuggestions();
             }
@@ -618,6 +643,18 @@ public class MonClavierService extends InputMethodService {
 
             question = texte.toString().trim();
         }
+        long maintenant = System.currentTimeMillis();
+        if (question.equals(derniereQuestionEnvoyee)
+                && mode.equals(dernierModeEnvoye)
+                && maintenant - dernierHorodatageEnvoi < 1200) {
+            return;
+        }
+
+        derniereQuestionEnvoyee = question;
+        dernierModeEnvoye = mode;
+        dernierHorodatageEnvoi = maintenant;
+        final long idRequete = ++generationRequeteIA;
+
         Toast.makeText(this, "Gemini prépare la réponse...",
             Toast.LENGTH_SHORT).show();
 
@@ -703,6 +740,7 @@ public class MonClavierService extends InputMethodService {
                 }
 
                 new Handler(Looper.getMainLooper()).post(() -> {
+                    if (idRequete != generationRequeteIA) return;
                     InputConnection ic = getCurrentInputConnection();
                     if (ic != null) {
                         ClipboardManager gestionPressePapiers =
@@ -727,9 +765,11 @@ public class MonClavierService extends InputMethodService {
                     detail = "Impossible de contacter l'API.";
                 }
                 final String erreur = detail;
-                new Handler(Looper.getMainLooper()).post(() ->
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    if (idRequete != generationRequeteIA) return;
                     Toast.makeText(this, "Échec : " + erreur,
-                        Toast.LENGTH_LONG).show());
+                        Toast.LENGTH_LONG).show();
+                });
             } finally {
                 if (connexion != null) connexion.disconnect();
             }
