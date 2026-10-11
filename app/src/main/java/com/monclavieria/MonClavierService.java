@@ -58,7 +58,52 @@ public class MonClavierService extends InputMethodService {
         "rien", "salut", "savoir", "seulement", "si", "soir",
         "super", "suis", "sur", "surtout", "temps", "toujours",
         "tout", "très", "travail", "trouver", "tu", "vraiment",
-        "venir", "votre", "vous", "vouloir", "voyage", "ça"
+        "venir", "votre", "vous", "vouloir", "voyage", "ça",
+        "absolument", "accepter", "accord", "accueil", "action",
+        "activité", "actualité", "addition", "admirable", "adore",
+        "affaire", "afficher", "aider", "aimable", "aimer",
+        "ainsi", "ajouter", "améliorer", "amitié", "amour",
+        "analyse", "ancien", "année", "annoncer", "apprendre",
+        "après", "arriver", "article", "assez", "attention",
+        "aujourd'hui", "aussi", "autre", "autrement", "avenir",
+        "avec", "avancer", "avantage", "avoir", "beauté",
+        "besoin", "bientôt", "bloquer", "bonheur", "bonne",
+        "car", "cause", "célébrer", "certain", "chacun",
+        "changement", "changer", "chaque", "choisir", "chose",
+        "classe", "collaboration", "collègue", "commencer",
+        "commentaire", "communication", "communauté", "complet",
+        "comprendre", "confiance", "connaissance", "conseil",
+        "continuer", "conversation", "correct", "correction",
+        "création", "créer", "curieux", "découvrir", "déjà",
+        "demander", "développer", "différence", "différent",
+        "difficile", "discussion", "disponible", "document",
+        "école", "économie", "écrire", "éducation", "effet",
+        "effort", "élément", "élève", "émotion", "énergie",
+        "engagement", "envoyer", "équipe", "erreur", "espérer",
+        "essayer", "étape", "étudier", "événement", "exemple",
+        "excellent", "expliquer", "expression", "facile",
+        "façon", "féliciter", "fichier", "finalement", "fonction",
+        "formation", "fort", "futur", "gagner", "généralement",
+        "gérer", "important", "importance", "information",
+        "informatique", "intéressant", "internet", "intelligent",
+        "intelligence", "inviter", "logiciel", "longtemps",
+        "meilleure", "mémoire", "méthode", "modérateur",
+        "modératrice", "motivation", "naturel", "nécessaire",
+        "objectif", "organisation", "organiser", "ordinateur",
+        "outil", "parfaitement", "participer", "participation",
+        "patient", "penser", "pensée", "permettre", "plaisir",
+        "possible", "pratique", "préparer", "présenter",
+        "présentation", "priorité", "problème", "programme",
+        "progresser", "proposition", "protéger", "public",
+        "qualité", "réaliser", "recevoir", "recherche",
+        "recommander", "réponse", "responsable", "résultat",
+        "réunion", "réussir", "réussite", "réseau", "respect",
+        "respecter", "réviser", "sérieux", "service", "solution",
+        "souhaiter", "spécial", "spéciale", "stratégie",
+        "système", "technique", "technologie", "téléphone",
+        "terminer", "texte", "thème", "utilisateur", "utiliser",
+        "valeur", "vérifier", "version", "vidéo", "vocabulaire",
+        "volonté", "zéro"
     };
 
     @Override
@@ -72,6 +117,37 @@ public class MonClavierService extends InputMethodService {
         clavier.setOrientation(LinearLayout.VERTICAL);
         clavier.setPadding(dp(3), dp(3), dp(3), dp(3));
         clavier.setBackgroundColor(Color.rgb(225, 230, 238));
+
+        // Barre supérieure professionnelle
+        LinearLayout barreSuperieure = new LinearLayout(this);
+        barreSuperieure.setOrientation(LinearLayout.HORIZONTAL);
+        barreSuperieure.setGravity(Gravity.CENTER_VERTICAL);
+        barreSuperieure.setPadding(dp(4), 0, dp(4), 0);
+
+        Button titreClavier = creerTouche("Mon IA");
+        titreClavier.setTextSize(13);
+        titreClavier.setTextColor(Color.rgb(35, 85, 160));
+        ajouterTouche(barreSuperieure, titreClavier, 1.4f);
+        titreClavier.setOnClickListener(v ->
+            Toast.makeText(this, "Clavier IA prêt", Toast.LENGTH_SHORT).show());
+
+        Button raccourciIA = creerTouche("IA");
+        raccourciIA.setTextSize(13);
+        ajouterTouche(barreSuperieure, raccourciIA, 1f);
+        raccourciIA.setOnClickListener(v -> chargerQuestionDepuisPressePapiers());
+
+        Button raccourciQuiz = creerTouche("QUIZ");
+        raccourciQuiz.setTextSize(13);
+        ajouterTouche(barreSuperieure, raccourciQuiz, 1.2f);
+        raccourciQuiz.setOnClickListener(v -> chargerQuestionDepuisPressePapiers());
+
+        Button fermerClavier = creerTouche("⌄");
+        fermerClavier.setTextSize(18);
+        ajouterTouche(barreSuperieure, fermerClavier, 0.8f);
+        fermerClavier.setOnClickListener(v -> requestHideSelf(0));
+
+        clavier.addView(barreSuperieure,
+            new LinearLayout.LayoutParams(-1, dp(38)));
 
         barreSuggestions = new LinearLayout(this);
         barreSuggestions.setOrientation(LinearLayout.HORIZONTAL);
@@ -120,11 +196,18 @@ public class MonClavierService extends InputMethodService {
                             vue.performHapticFeedback(
                                 android.view.HapticFeedbackConstants.KEYBOARD_TAP
                             );
+                            vue.setTag(new Object[] {
+                                Float.valueOf(evenement.getX()),
+                                Boolean.FALSE,
+                                new Handler(Looper.getMainLooper()),
+                                null,
+                                new boolean[] {true}
+                            });
                             traiterTouche("⌫");
 
-                            Handler gestionnaire =
-                                new Handler(Looper.getMainLooper());
-                            boolean[] appuye = {true};
+                            Object[] donnees = (Object[]) vue.getTag();
+                            Handler gestionnaire = (Handler) donnees[2];
+                            boolean[] appuye = (boolean[]) donnees[4];
 
                             Runnable repetition = new Runnable() {
                                 @Override
@@ -135,11 +218,27 @@ public class MonClavierService extends InputMethodService {
                                     }
                                 }
                             };
-
-                            vue.setTag(new Object[] {
-                                gestionnaire, repetition, appuye
-                            });
+                            donnees[3] = repetition;
                             gestionnaire.postDelayed(repetition, 350);
+                            return true;
+                        }
+
+                        if (action == android.view.MotionEvent.ACTION_MOVE) {
+                            Object objet = vue.getTag();
+                            if (objet instanceof Object[]) {
+                                Object[] donnees = (Object[]) objet;
+                                float depart = ((Float) donnees[0]).floatValue();
+                                float deplacement = evenement.getX() - depart;
+                                if (deplacement < -dp(35)
+                                        && !((Boolean) donnees[1]).booleanValue()) {
+                                    donnees[1] = Boolean.TRUE;
+                                    boolean[] appuye = (boolean[]) donnees[4];
+                                    appuye[0] = false;
+                                    ((Handler) donnees[2]).removeCallbacks(
+                                        (Runnable) donnees[3]);
+                                    effacerDernierMot();
+                                }
+                            }
                             return true;
                         }
 
@@ -148,10 +247,11 @@ public class MonClavierService extends InputMethodService {
                             Object objet = vue.getTag();
                             if (objet instanceof Object[]) {
                                 Object[] donnees = (Object[]) objet;
-                                ((boolean[]) donnees[2])[0] = false;
-                                ((Handler) donnees[0]).removeCallbacks(
-                                    (Runnable) donnees[1]
-                                );
+                                ((boolean[]) donnees[4])[0] = false;
+                                if (donnees[3] instanceof Runnable) {
+                                    ((Handler) donnees[2]).removeCallbacks(
+                                        (Runnable) donnees[3]);
+                                }
                             }
                             vue.setTag(null);
                             return true;
@@ -235,6 +335,35 @@ public class MonClavierService extends InputMethodService {
                 actualiserMajuscules();
             }
             envoyer(caractere);
+        }
+    }
+
+    private void effacerDernierMot() {
+        InputConnection ic = getCurrentInputConnection();
+        if (ic == null) return;
+
+        CharSequence avant = ic.getTextBeforeCursor(120, 0);
+        if (avant == null || avant.length() == 0) return;
+
+        String texte = avant.toString();
+        int fin = texte.length();
+
+        while (fin > 0 && Character.isWhitespace(texte.charAt(fin - 1))) {
+            fin--;
+        }
+
+        int debut = fin;
+        while (debut > 0 && Character.isLetterOrDigit(texte.charAt(debut - 1))) {
+            debut--;
+        }
+
+        if (debut == fin && fin > 0) {
+            debut = fin - 1;
+        }
+
+        if (fin > debut) {
+            ic.deleteSurroundingText(texte.length() - debut, 0);
+            actualiserSuggestions();
         }
     }
 
@@ -470,10 +599,79 @@ public class MonClavierService extends InputMethodService {
             .trim();
     }
 
+    private boolean corrigerDernierMot(InputConnection ic) {
+        if (ic == null) return false;
+
+        CharSequence contenu = ic.getTextBeforeCursor(80, 0);
+        if (contenu == null || contenu.length() == 0) return false;
+
+        String avant = contenu.toString();
+        int debut = avant.length();
+
+        while (debut > 0 && Character.isLetter(avant.charAt(debut - 1))) {
+            debut--;
+        }
+
+        if (debut == avant.length()) return false;
+
+        String mot = avant.substring(debut);
+
+        // Ne pas modifier les mots commençant par une majuscule.
+        if (!mot.equals(mot.toLowerCase(Locale.ROOT))) return false;
+
+        String corrige = mot;
+
+        switch (mot) {
+            case "bonjourr":
+            case "bonjouur":
+                corrige = "bonjour";
+                break;
+            case "mercii":
+                corrige = "merci";
+                break;
+            case "commen":
+            case "commment":
+                corrige = "comment";
+                break;
+            case "vraimment":
+                corrige = "vraiment";
+                break;
+            case "vraimen":
+                corrige = "vraiment";
+                break;
+            case "beaucoups":
+                corrige = "beaucoup";
+                break;
+            case "maintenent":
+                corrige = "maintenant";
+                break;
+            case "aujourdhui":
+                corrige = "aujourd'hui";
+                break;
+            case "desoler":
+                corrige = "désolé";
+                break;
+            case "desolee":
+                corrige = "désolée";
+                break;
+            case "saluut":
+                corrige = "salut";
+                break;
+        }
+
+        if (corrige.equals(mot)) return false;
+
+        ic.deleteSurroundingText(mot.length(), 0);
+        ic.commitText(corrige + " ", 1);
+        return true;
+    }
+
     private void envoyer(String texte) {
         InputConnection ic = getCurrentInputConnection();
         if (ic != null) {
-            ic.commitText(texte, 1);
+            if (!texte.equals(" ") || !corrigerDernierMot(ic)) {
+                ic.commitText(texte, 1);
+            }
             actualiserSuggestions();
         }
     }

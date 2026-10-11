@@ -2,31 +2,28 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-```
-<uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.INTERNET" />
 
-<application
-    android:label="MonClavierIA"
-    android:theme="@android:style/Theme.Material.Light.NoActionBar"
-    android:allowBackup="false"
-    android:usesCleartextTraffic="true">
-
-    <service
-        android:name=".MonClavierService"
+    <application
         android:label="MonClavierIA"
-        android:permission="android.permission.BIND_INPUT_METHOD"
-        android:exported="true">
+        android:theme="@android:style/Theme.Material.Light.NoActionBar"
+        android:allowBackup="false"
+        android:usesCleartextTraffic="true">
 
-        <intent-filter>
-            <action android:name="android.view.InputMethod" />
-        </intent-filter>
+        <service
+            android:name=".MonClavierService"
+            android:label="MonClavierIA"
+            android:permission="android.permission.BIND_INPUT_METHOD"
+            android:exported="true">
 
-        <meta-data
-            android:name="android.view.im"
-            android:resource="@xml/method" />
-    </service>
+            <intent-filter>
+                <action android:name="android.view.InputMethod" />
+            </intent-filter>
 
-</application>
-```
+            <meta-data
+                android:name="android.view.im"
+                android:resource="@xml/method" />
+        </service>
 
+    </application>
 </manifest>
