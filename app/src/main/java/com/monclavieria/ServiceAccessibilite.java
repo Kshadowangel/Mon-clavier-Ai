@@ -53,6 +53,14 @@ public class ServiceAccessibilite extends AccessibilityService {
         SharedPreferences preferences =
             getSharedPreferences("clavier_preferences", MODE_PRIVATE);
 
+        String ancienneCapture = preferences.getString(
+            "derniere_question_ecran", "");
+
+        // Ne pas rajeunir une capture si le texte n'a pas changé.
+        if (capture.equals(ancienneCapture)) {
+            return;
+        }
+
         preferences.edit()
             .putString("derniere_question_ecran", capture)
             .putLong("horodatage_question_ecran",
