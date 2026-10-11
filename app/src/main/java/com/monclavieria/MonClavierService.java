@@ -40,6 +40,8 @@ public class MonClavierService extends InputMethodService {
     private Button toucheMaj;
     private Button toucheMode;
     private LinearLayout barreSuggestions;
+    private final Handler gestionnaireSuggestions = new Handler(Looper.getMainLooper());
+    private Runnable actualisationSuggestionsEnAttente;
     private long generationRequeteIA = 0L;
     private long dernierHorodatageEnvoi = 0L;
     private String derniereQuestionEnvoyee = "";
@@ -245,7 +247,7 @@ public class MonClavierService extends InputMethodService {
                                 }
                             };
                             donnees[3] = repetition;
-                            gestionnaire.postDelayed(repetition, 350);
+                            gestionnaire.postDelayed(repetition, 300);
                             return true;
                         }
 
@@ -360,8 +362,7 @@ public class MonClavierService extends InputMethodService {
         Button quiz = creerTouche("QUIZ");
         ajouterTouche(bas, quiz, 1.5f);
         quiz.setOnClickListener(v -> {
-            Toast.makeText(this, "Clic QUIZ détecté !", Toast.LENGTH_SHORT).show();
-            chargerQuestionDepuisPressePapiers();
+            chargerQuestionDepuisEcran();
         });
 
         clavier.addView(bas);
@@ -471,6 +472,15 @@ public class MonClavierService extends InputMethodService {
     }
 
     private void actualiserSuggestions() {
+        if (barreSuggestions == null) return;
+        if (actualisationSuggestionsEnAttente != null) {
+            gestionnaireSuggestions.removeCallbacks(actualisationSuggestionsEnAttente);
+        }
+        actualisationSuggestionsEnAttente = this::actualiserSuggestionsImmediatement;
+        gestionnaireSuggestions.postDelayed(actualisationSuggestionsEnAttente, 35);
+    }
+
+    private void actualiserSuggestionsImmediatement() {
         if (barreSuggestions == null) return;
 
         barreSuggestions.removeAllViews();
@@ -684,9 +694,11 @@ public class MonClavierService extends InputMethodService {
                         "Identifie la question de quiz et ignore les menus, " +
                         "boutons et textes sans rapport. Si plusieurs questions " +
                         "sont visibles, réponds à la plus clairement posée. " +
-                        "Donne uniquement la réponse utile, sans Markdown, " +
-                        "sans astérisques et sans introduction. Si la question " +
-                        "est ambiguë, indique-le honnêtement. Texte écran : " +
+                        "Réponds très brièvement, en une ligne si possible. " +
+                        "Pour un quiz, donne d'abord directement la réponse, " +
+                        "sans explication sauf si elle est indispensable. " +
+                        "Aucun Markdown, aucune astérisque ni introduction. " +
+                        "Si la question est ambiguë ou illisible, dis-le. Texte écran : " +
                         question;
                 } else if (mode.equals("reformuler")) {
                     instruction =
@@ -843,6 +855,16 @@ public class MonClavierService extends InputMethodService {
                 break;
             case "saluut":
                 corrige = "salut";
+                break;
+            case "bonjor":
+            case "bonjou":
+                corrige = "bonjour";
+                break;
+            case "mercie":
+                corrige = "merci";
+                break;
+            case "aparament":
+                corrige = "apparemment";
                 break;
         }
 
