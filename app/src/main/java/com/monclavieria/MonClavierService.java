@@ -731,10 +731,18 @@ public class MonClavierService extends InputMethodService {
             chargerQuestionDepuisPressePapiers("quiz_ecran", texteEcran);
         } else {
             Toast.makeText(this,
-                "Capture écran indisponible. Copie la question puis réessaie.",
+                "Capture écran indisponible. Active la lecture d’écran ou copie la question.",
                 Toast.LENGTH_LONG).show();
-            chargerQuestionDepuisPressePapiers("repondre");
         }
+    }
+
+    private String supprimerMotsConsecutifsDupliques(String texte) {
+        if (texte == null || texte.trim().isEmpty()) return "";
+
+        return texte.trim().replaceAll(
+            "(?iu)\\b([\\p{L}\\p{N}]+)(?:[\\s,;:!?.()\\-]+\\1\\b)+",
+            "$1"
+        );
     }
 
     private void chargerQuestionDepuisPressePapiers() {
@@ -823,7 +831,8 @@ public class MonClavierService extends InputMethodService {
                     instruction =
                         "Tu joues à un quiz : une lettre est donnée et il faut citer " +
                         "un personnage d'anime dont le nom commence par cette lettre. " +
-                        "Donne un seul nom valide, sans explication. " +
+                        "Donne exactement un seul nom de personnage valide. " +
+                        "Ne donne ni liste, ni second nom, ni explication. " +
                         "Respecte la lettre demandée. Si plusieurs détails sont fournis, " +
                         "tiens-en compte. Texte : " + question;
                 } else if (mode.equals("rub_vaurien")) {
@@ -833,14 +842,16 @@ public class MonClavierService extends InputMethodService {
                         "Cela peut être un personnage d'anime, une personne réelle, " +
                         "une œuvre, un objet ou un personnage de fiction. " +
                         "Exemples : épéiste dans One Piece = Zoro ; épée dans One Piece = Enma. " +
-                        "Réponds par le nom uniquement, sans explication. " +
+                        "Donne un seul nom correspondant à l’indice, sans explication. " +
+                        "Ne répète pas le nom et ne propose aucune alternative. " +
                         "Indice : " + question;
                 } else if (mode.equals("rub_emoji")) {
                     instruction =
                         "Identifie précisément l'emoji fourni. Si c'est un drapeau, " +
                         "donne le pays ou l'organisation correspondante. Sinon, " +
                         "donne le nom ou la signification habituelle de l'emoji. " +
-                        "Réponds uniquement par l'identification, sans explication. " +
+                        "Donne une seule identification courte, sans explication. " +
+                        "Pour un emoji, retourne un seul nom ou une seule signification. " +
                         "Emoji ou texte : " + question;
                 } else if (mode.equals("quiz_ecran")) {
                     instruction =
@@ -893,7 +904,7 @@ public class MonClavierService extends InputMethodService {
                 }
 
                 JSONObject resultat = new JSONObject(contenu.toString());
-                String reponse = nettoyerReponse(resultat.optString("reponse", ""));
+                String reponse = supprimerMotsConsecutifsDupliques(nettoyerReponse(resultat.optString("reponse", "")));
 
                 // Ne jamais insérer le marqueur utilisé quand aucune
                 // nouvelle question n'est identifiable.
