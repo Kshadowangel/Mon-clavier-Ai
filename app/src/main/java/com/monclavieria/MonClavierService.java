@@ -132,6 +132,8 @@ public class MonClavierService extends InputMethodService {
     public void onStartInput(EditorInfo attribute, boolean restarting) {
         super.onStartInput(attribute, restarting);
         generationRequeteIA++;
+        requeteQuizActiveId = 0L;
+        derniereCaptureQuizTraitee = "";
         derniereQuestionEnvoyee = "";
         dernierModeEnvoye = "";
         dernierHorodatageEnvoi = 0L;
@@ -149,6 +151,7 @@ public class MonClavierService extends InputMethodService {
     @Override
     public void onFinishInput() {
         generationRequeteIA++;
+        requeteQuizActiveId = 0L;
 
         if (actualisationSuggestionsEnAttente != null) {
             gestionnaireSuggestions.removeCallbacks(
@@ -710,11 +713,9 @@ public class MonClavierService extends InputMethodService {
                         && age >= 1000
                         && age <= 30000
                         && !capture.equals(derniereCaptureQuizTraitee)
+                        && requeteQuizActiveId == 0L
                         && getCurrentInputConnection() != null) {
 
-                    // Marquer la capture avant la requête pour éviter
-                    // de soumettre plusieurs fois le même écran.
-                    derniereCaptureQuizTraitee = capture;
                     chargerQuestionDepuisPressePapiers(
                         "quiz_ecran", capture);
                 }
@@ -930,10 +931,6 @@ public class MonClavierService extends InputMethodService {
                 }
 
                 final String texteRecu = contenu.toString();
-
-                new Handler(Looper.getMainLooper()).post(() ->
-                    Toast.makeText(this, "API HTTP " + statut,
-                        Toast.LENGTH_LONG).show());
 
                 JSONObject resultat = new JSONObject(texteRecu);
                 String reponse = supprimerMotsConsecutifsDupliques(nettoyerReponse(resultat.optString("reponse", "")));
