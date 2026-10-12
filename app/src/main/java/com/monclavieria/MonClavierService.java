@@ -138,14 +138,6 @@ public class MonClavierService extends InputMethodService {
         dernierModeEnvoye = "";
         dernierHorodatageEnvoi = 0L;
 
-        // Restaurer le QUIZ automatique après le redémarrage du clavier.
-        android.content.SharedPreferences prefs =
-            getSharedPreferences("clavier_preferences", MODE_PRIVATE);
-        quizAutomatiqueActif = prefs.getBoolean(
-            "quiz_automatique_actif", false);
-        if (quizAutomatiqueActif) {
-            demarrerSurveillanceQuiz();
-        }
     }
 
     @Override
@@ -197,7 +189,7 @@ public class MonClavierService extends InputMethodService {
         Button raccourciQuiz = creerTouche("QUIZ");
         raccourciQuiz.setTextSize(13);
         ajouterTouche(barreSuperieure, raccourciQuiz, 1.2f);
-        raccourciQuiz.setOnClickListener(v -> basculerQuizAutomatique());
+        raccourciQuiz.setOnClickListener(v -> chargerQuestionDepuisEcran());
 
         Button parametres = creerTouche("⚙");
         parametres.setTextSize(17);
@@ -402,12 +394,6 @@ public class MonClavierService extends InputMethodService {
                 ic.sendKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER));
             }
         });
-        Button quiz = creerTouche("QUIZ");
-        ajouterTouche(bas, quiz, 1.5f);
-        quiz.setOnClickListener(v -> {
-            chargerQuestionDepuisEcran();
-        });
-
         clavier.addView(bas);
         return clavier;
     }
@@ -657,76 +643,6 @@ public class MonClavierService extends InputMethodService {
         menu.show();
     }
 
-    private void basculerQuizAutomatique() {
-        android.content.SharedPreferences prefs =
-            getSharedPreferences("clavier_preferences", MODE_PRIVATE);
-
-        quizAutomatiqueActif = !prefs.getBoolean(
-            "quiz_automatique_actif", false);
-
-        prefs.edit()
-            .putBoolean("quiz_automatique_actif", quizAutomatiqueActif)
-            .apply();
-
-        if (quizAutomatiqueActif) {
-            derniereCaptureQuizTraitee = "";
-            Toast.makeText(this,
-                "QUIZ AUTO activé : affiche une question et garde le clavier ouvert.",
-                Toast.LENGTH_LONG).show();
-            demarrerSurveillanceQuiz();
-        } else {
-            if (surveillanceQuiz != null) {
-                gestionnaireQuiz.removeCallbacks(surveillanceQuiz);
-            }
-            Toast.makeText(this, "QUIZ AUTO désactivé.",
-                Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    private void demarrerSurveillanceQuiz() {
-        if (surveillanceQuiz != null) {
-            gestionnaireQuiz.removeCallbacks(surveillanceQuiz);
-        }
-
-        surveillanceQuiz = new Runnable() {
-            @Override
-            public void run() {
-                android.content.SharedPreferences prefs =
-                    getSharedPreferences("clavier_preferences", MODE_PRIVATE);
-
-                if (!prefs.getBoolean("quiz_automatique_actif", false)) {
-                    quizAutomatiqueActif = false;
-                    return;
-                }
-
-                quizAutomatiqueActif = true;
-
-                String capture = prefs.getString(
-                    "derniere_question_ecran", "");
-                long horodatage = prefs.getLong(
-                    "horodatage_question_ecran", 0L);
-                long age = System.currentTimeMillis() - horodatage;
-
-                if (capture != null
-                        && capture.trim().length() >= 15
-                        && horodatage > 0
-                        && age >= 1000
-                        && age <= 30000
-                        && !capture.equals(derniereCaptureQuizTraitee)
-                        && requeteQuizActiveId == 0L
-                        && getCurrentInputConnection() != null) {
-
-                    chargerQuestionDepuisPressePapiers(
-                        "quiz_ecran", capture);
-                }
-
-                gestionnaireQuiz.postDelayed(this, 400);
-            }
-        };
-
-        gestionnaireQuiz.post(surveillanceQuiz);
-    }
-
     private void chargerQuestionDepuisEcran() {
         android.content.SharedPreferences preferences =
             getSharedPreferences("clavier_preferences", MODE_PRIVATE);
@@ -741,9 +657,7 @@ public class MonClavierService extends InputMethodService {
                 && capture > 0 && age >= 0 && age <= 30000) {
             chargerQuestionDepuisPressePapiers("quiz_ecran", texteEcran);
         } else {
-            Toast.makeText(this,
-                "Capture écran indisponible. Active la lecture d’écran ou copie la question.",
-                Toast.LENGTH_LONG).show();
+            chargerQuestionDepuisPressePapiers("quiz_copie");
         }
     }
 
@@ -803,7 +717,7 @@ public class MonClavierService extends InputMethodService {
             return;
         }
 
-        if ("quiz_ecran".equals(mode)) {
+        if ("quiz_ecran".equals(mode) || "quiz_copie".equals(mode)) {
             if (requeteQuizActiveId != 0L) {
                 Toast.makeText(this,
                     "Quiz déjà en cours : attends la réponse.",
@@ -820,12 +734,12 @@ public class MonClavierService extends InputMethodService {
         dernierModeEnvoye = mode;
         dernierHorodatageEnvoi = maintenant;
         final long idRequete = ++generationRequeteIA;
-        if ("quiz_ecran".equals(mode)) {
+        if ("quiz_ecran".equals(mode) || "quiz_copie".equals(mode)) {
             requeteQuizActiveId = idRequete;
         }
         final InputConnection connexionCible = getCurrentInputConnection();
 
-        Toast.makeText(this, "Gemini prépare la réponse...",
+        Toast.makeText(this, "OpenRouter prépare la réponse...",
             Toast.LENGTH_SHORT).show();
 
         new Thread(() -> {
@@ -880,19 +794,24 @@ public class MonClavierService extends InputMethodService {
                         "Donne une seule identification courte, sans explication. " +
                         "Pour un emoji, retourne un seul nom ou une seule signification. " +
                         "Emoji ou texte : " + question;
-                } else if (mode.equals("quiz_ecran")) {
+                } else if (mode.equals("quiz_ecran") || mode.equals("quiz_copie")) {
                     instruction =
-                        "Tu dois RÉPONDRE à la question de quiz visible, pas la recopier. " +
-                        "Le texte fourni est une capture complète de l'écran et peut contenir " +
-                        "plusieurs anciennes questions avec leurs réponses. " +
-                        "Repère la question la plus récente qui n'a PAS encore de réponse visible. " +
-                        "Ignore les questions dont la réponse est déjà affichée. " +
-                        "N'écris jamais l'énoncé de la question comme réponse. " +
-                        "Donne uniquement la réponse attendue, directement, en une ligne. " +
-                        "Pour un QCM, donne la bonne option et son texte si identifiable. " +
-                        "N'ajoute ni explication longue, ni introduction, ni Markdown, ni astérisques. " +
-                        "Si aucune nouvelle question sans réponse n'est clairement identifiable, " +
-                        "réponds exactement ATTENTE.\nTEXTE DE L'ÉCRAN :\n" + question;
+                        "Tu es le moteur de réponse d'un quiz. Analyse le texte fourni " +
+                        "et détecte la rubrique active. " +
+                        "Vitesse : transforme le texte demandé en minuscules, " +
+                        "en conservant les accents et la ponctuation. " +
+                        "Vaurien : trouve un seul nom correspondant à l'indice. " +
+                        "Emoji : identifie précisément l'emoji, le pays ou sa signification. " +
+                        "Lettre de personnage : donne un seul personnage d'anime dont " +
+                        "le nom commence par la lettre demandée. " +
+                        "Si aucune de ces rubriques n'est active, réponds à la question " +
+                        "de quiz la plus récente qui n'a pas encore de réponse visible. " +
+                        "Ignore les anciennes questions déjà répondues. " +
+                        "Pour un QCM, donne l'option correcte et son texte si possible. " +
+                        "Ne recopie jamais l'énoncé. Retourne une seule réponse concise, " +
+                        "sans introduction, sans explication inutile, sans Markdown " +
+                        "ni astérisques. Si aucune question active n'est clairement identifiable, " +
+                        "réponds exactement ATTENTE. Texte : " + question;
                 } else {
                     instruction =
                         "Tu es un assistant intelligent spécialisé dans les quiz, " +
@@ -953,7 +872,7 @@ public class MonClavierService extends InputMethodService {
 
                 if (statut < 200 || statut >= 300 || reponse.isEmpty()) {
                     throw new IOException(resultat.optString(
-                        "erreur", "Erreur de l'API Gemini."));
+                        "erreur", "Erreur de l'API OpenRouter."));
                 }
 
                 new Handler(Looper.getMainLooper()).post(() -> {
@@ -991,6 +910,9 @@ public class MonClavierService extends InputMethodService {
                         if (gestionPressePapiers != null) {
                             gestionPressePapiers.setPrimaryClip(
                                 ClipData.newPlainText("Réponse", reponse));
+                        }
+                        if ("quiz_ecran".equals(mode) || "quiz_copie".equals(mode)) {
+                            ic.performContextMenuAction(android.R.id.selectAll);
                         }
                         ic.commitText(reponse, 1);
                         Toast.makeText(this, "Réponse insérée et copiée !",
