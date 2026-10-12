@@ -612,16 +612,37 @@ public class MonClavierService extends InputMethodService {
         menu.getMenu().add("Répondre");
         menu.getMenu().add("Corriger");
         menu.getMenu().add("Reformuler");
+        menu.getMenu().add("Vitesse - minuscules");
+        menu.getMenu().add("Lettre - personnage animé");
+        menu.getMenu().add("Vaurien - trouver un nom");
+        menu.getMenu().add("Rub Emoji - identifier");
+
         menu.setOnMenuItemClickListener(item -> {
             String choix = item.getTitle().toString();
-            String mode = choix.equals("Corriger") ? "corriger"
-                : choix.equals("Reformuler") ? "reformuler" : "repondre";
+            String mode;
+
+            if (choix.equals("Corriger")) {
+                mode = "corriger";
+            } else if (choix.equals("Reformuler")) {
+                mode = "reformuler";
+            } else if (choix.equals("Vitesse - minuscules")) {
+                mode = "rub_vitesse";
+            } else if (choix.equals("Lettre - personnage animé")) {
+                mode = "rub_anime";
+            } else if (choix.equals("Vaurien - trouver un nom")) {
+                mode = "rub_vaurien";
+            } else if (choix.equals("Rub Emoji - identifier")) {
+                mode = "rub_emoji";
+            } else {
+                mode = "repondre";
+            }
+
             chargerQuestionDepuisPressePapiers(mode);
             return true;
         });
+
         menu.show();
     }
-
 
     private void basculerQuizAutomatique() {
         android.content.SharedPreferences prefs =
@@ -792,6 +813,35 @@ public class MonClavierService extends InputMethodService {
                         "Conserve le sens, le ton et la langue du texte. " +
                         "Retourne uniquement le texte corrigé, sans introduction ni Markdown. " +
                         "Texte : " + question;
+                } else if (mode.equals("rub_vitesse")) {
+                    instruction =
+                        "Convertis le texte fourni entièrement en minuscules. " +
+                        "Conserve les mots, les accents, les chiffres et la ponctuation. " +
+                        "Retourne uniquement le texte transformé, sans explication. " +
+                        "Texte : " + question;
+                } else if (mode.equals("rub_anime")) {
+                    instruction =
+                        "Tu joues à un quiz : une lettre est donnée et il faut citer " +
+                        "un personnage d'anime dont le nom commence par cette lettre. " +
+                        "Donne un seul nom valide, sans explication. " +
+                        "Respecte la lettre demandée. Si plusieurs détails sont fournis, " +
+                        "tiens-en compte. Texte : " + question;
+                } else if (mode.equals("rub_vaurien")) {
+                    instruction =
+                        "Tu joues à un quiz d'association d'indices appelé Vaurien. " +
+                        "À partir de l'indice fourni, trouve le nom le plus attendu. " +
+                        "Cela peut être un personnage d'anime, une personne réelle, " +
+                        "une œuvre, un objet ou un personnage de fiction. " +
+                        "Exemples : épéiste dans One Piece = Zoro ; épée dans One Piece = Enma. " +
+                        "Réponds par le nom uniquement, sans explication. " +
+                        "Indice : " + question;
+                } else if (mode.equals("rub_emoji")) {
+                    instruction =
+                        "Identifie précisément l'emoji fourni. Si c'est un drapeau, " +
+                        "donne le pays ou l'organisation correspondante. Sinon, " +
+                        "donne le nom ou la signification habituelle de l'emoji. " +
+                        "Réponds uniquement par l'identification, sans explication. " +
+                        "Emoji ou texte : " + question;
                 } else if (mode.equals("quiz_ecran")) {
                     instruction =
                         "Tu dois RÉPONDRE à la question de quiz visible, pas la recopier. " +
