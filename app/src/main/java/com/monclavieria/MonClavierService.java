@@ -48,6 +48,7 @@ public class MonClavierService extends InputMethodService {
     private String dernierModeEnvoye = "";
 
     private boolean quizAutomatiqueActif = false;
+    private long requeteQuizActiveId = 0L;
     private String derniereCaptureQuizTraitee = "";
     private final Handler gestionnaireQuiz =
         new Handler(Looper.getMainLooper());
@@ -801,10 +802,26 @@ public class MonClavierService extends InputMethodService {
             return;
         }
 
+        if ("quiz_ecran".equals(mode)) {
+            if (requeteQuizActiveId != 0L) {
+                Toast.makeText(this,
+                    "Quiz déjà en cours : attends la réponse.",
+                    Toast.LENGTH_SHORT).show();
+                return;
+            }
+            derniereCaptureQuizTraitee = question;
+        } else {
+            // Une action IA manuelle invalide toute ancienne réponse du quiz.
+            requeteQuizActiveId = 0L;
+        }
+
         derniereQuestionEnvoyee = question;
         dernierModeEnvoye = mode;
         dernierHorodatageEnvoi = maintenant;
         final long idRequete = ++generationRequeteIA;
+        if ("quiz_ecran".equals(mode)) {
+            requeteQuizActiveId = idRequete;
+        }
         final InputConnection connexionCible = getCurrentInputConnection();
 
         Toast.makeText(this, "Gemini prépare la réponse...",
@@ -919,6 +936,9 @@ public class MonClavierService extends InputMethodService {
                 // nouvelle question n'est identifiable.
                 if ("ATTENTE".equalsIgnoreCase(reponse.trim())) {
                     new Handler(Looper.getMainLooper()).post(() -> {
+                        if (requeteQuizActiveId == idRequete) {
+                            requeteQuizActiveId = 0L;
+                        }
                         if (idRequete == generationRequeteIA) {
                             Toast.makeText(this,
                                 "En attente d'une nouvelle question.",
@@ -934,6 +954,9 @@ public class MonClavierService extends InputMethodService {
                 }
 
                 new Handler(Looper.getMainLooper()).post(() -> {
+                    if (requeteQuizActiveId == idRequete) {
+                        requeteQuizActiveId = 0L;
+                    }
                     if (idRequete != generationRequeteIA) return;
 
                     if ("quiz_ecran".equals(mode)) {
@@ -982,6 +1005,9 @@ public class MonClavierService extends InputMethodService {
                 }
                 final String erreur = detail;
                 new Handler(Looper.getMainLooper()).post(() -> {
+                    if (requeteQuizActiveId == idRequete) {
+                        requeteQuizActiveId = 0L;
+                    }
                     if (idRequete != generationRequeteIA) return;
                     Toast.makeText(this, "Échec : " + erreur,
                         Toast.LENGTH_LONG).show();
