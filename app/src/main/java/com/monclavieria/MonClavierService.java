@@ -795,14 +795,18 @@ public class MonClavierService extends InputMethodService {
                 } else if (mode.equals("quiz_ecran")) {
                     instruction =
                         "Le texte suivant provient de l'écran d'une application. " +
-                        "Identifie la question de quiz et ignore les menus, " +
-                        "boutons et textes sans rapport. Si plusieurs questions " +
-                        "sont visibles, réponds à la plus clairement posée. " +
-                        "Réponds très brièvement, en une ligne si possible. " +
-                        "Pour un quiz, donne d'abord directement la réponse, " +
-                        "sans explication sauf si elle est indispensable. " +
+                        "Identifie la question de quiz ACTUELLE, la plus récente. " +
+                        "Le texte de l'écran peut contenir d'anciennes questions et " +
+                        "leurs réponses. Ignore-les. Cherche la nouvelle question, " +
+                        "en privilégiant celle située le plus bas dans le texte " +
+                        "lorsque plusieurs questions sont visibles. Ne réponds pas " +
+                        "à une ancienne question simplement parce qu'elle reste " +
+                        "affichée. Si une question a déjà une réponse visible, " +
+                        "considère-la comme ancienne et cherche la suivante. " +
+                        "Réponds très brièvement, directement, en une ligne. " +
                         "Aucun Markdown, aucune astérisque ni introduction. " +
-                        "Si la question est ambiguë ou illisible, dis-le. Texte écran : " +
+                        "Si aucune nouvelle question n'est identifiable, réponds " +
+                        "exactement ATTENTE. Texte écran : " +
                         question;
                 } else if (mode.equals("reformuler")) {
                     instruction =
@@ -850,6 +854,19 @@ public class MonClavierService extends InputMethodService {
                 JSONObject resultat = new JSONObject(contenu.toString());
                 String reponse = nettoyerReponse(resultat.optString("reponse", ""));
 
+                // Ne jamais insérer le marqueur utilisé quand aucune
+                // nouvelle question n'est identifiable.
+                if ("ATTENTE".equalsIgnoreCase(reponse.trim())) {
+                    new Handler(Looper.getMainLooper()).post(() -> {
+                        if (idRequete == generationRequeteIA) {
+                            Toast.makeText(this,
+                                "En attente d'une nouvelle question.",
+                                Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                    return;
+                }
+
                 if (statut < 200 || statut >= 300 || reponse.isEmpty()) {
                     throw new IOException(resultat.optString(
                         "erreur", "Erreur de l'API Gemini."));
@@ -857,6 +874,20 @@ public class MonClavierService extends InputMethodService {
 
                 new Handler(Looper.getMainLooper()).post(() -> {
                     if (idRequete != generationRequeteIA) return;
+
+                    if ("quiz_ecran".equals(mode)) {
+                        android.content.SharedPreferences prefs =
+                            getSharedPreferences("clavier_preferences", MODE_PRIVATE);
+                        String captureActuelle = prefs.getString(
+                            "derniere_question_ecran", "");
+                        if (!question.equals(captureActuelle)) {
+                            Toast.makeText(this,
+                                "Question modifiée : ancienne réponse ignorée.",
+                                Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+                    }
+
                     InputConnection ic = getCurrentInputConnection();
 
                     if (ic != connexionCible) {
