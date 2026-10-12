@@ -56,8 +56,12 @@ public class ServiceAccessibilite extends AccessibilityService {
         String ancienneCapture = preferences.getString(
             "derniere_question_ecran", "");
 
-        // Ne pas rajeunir une capture si le texte n'a pas changé.
+        // Actualiser la date même si le texte de l'écran reste identique.
         if (capture.equals(ancienneCapture)) {
+            preferences.edit()
+                .putLong("horodatage_question_ecran",
+                    System.currentTimeMillis())
+                .apply();
             return;
         }
 

@@ -134,6 +134,15 @@ public class MonClavierService extends InputMethodService {
         derniereQuestionEnvoyee = "";
         dernierModeEnvoye = "";
         dernierHorodatageEnvoi = 0L;
+
+        // Restaurer le QUIZ automatique après le redémarrage du clavier.
+        android.content.SharedPreferences prefs =
+            getSharedPreferences("clavier_preferences", MODE_PRIVATE);
+        quizAutomatiqueActif = prefs.getBoolean(
+            "quiz_automatique_actif", false);
+        if (quizAutomatiqueActif) {
+            demarrerSurveillanceQuiz();
+        }
     }
 
     @Override
