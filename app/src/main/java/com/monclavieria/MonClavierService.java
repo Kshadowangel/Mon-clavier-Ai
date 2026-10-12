@@ -794,26 +794,17 @@ public class MonClavierService extends InputMethodService {
                         "Texte : " + question;
                 } else if (mode.equals("quiz_ecran")) {
                     instruction =
-                        "Le texte suivant provient de l'écran d'une application. " +
-                        "Identifie la question de quiz ACTUELLE, la plus récente. " +
-                        "Le texte de l'écran peut contenir d'anciennes questions et " +
-                        "leurs réponses. Ignore-les. Cherche la nouvelle question, " +
-                        "en privilégiant celle située le plus bas dans le texte " +
-                        "lorsque plusieurs questions sont visibles. Ne réponds pas " +
-                        "à une ancienne question simplement parce qu'elle reste " +
-                        "affichée. Si une question a déjà une réponse visible, " +
-                        "considère-la comme ancienne et cherche la suivante. " +
-                        "Réponds très brièvement, directement, en une ligne. " +
-                        "Aucun Markdown, aucune astérisque ni introduction. " +
-                        "Si aucune nouvelle question n'est identifiable, réponds " +
-                        "exactement ATTENTE. Texte écran : " +
-                        question;
-                } else if (mode.equals("reformuler")) {
-                    instruction =
-                        "Reformule ce texte de manière naturelle, claire et fluide. " +
-                        "Conserve fidèlement le sens et la langue d'origine. " +
-                        "Retourne uniquement le texte reformulé, sans introduction ni Markdown. " +
-                        "Texte : " + question;
+                        "Tu dois RÉPONDRE à la question de quiz visible, pas la recopier. " +
+                        "Le texte fourni est une capture complète de l'écran et peut contenir " +
+                        "plusieurs anciennes questions avec leurs réponses. " +
+                        "Repère la question la plus récente qui n'a PAS encore de réponse visible. " +
+                        "Ignore les questions dont la réponse est déjà affichée. " +
+                        "N'écris jamais l'énoncé de la question comme réponse. " +
+                        "Donne uniquement la réponse attendue, directement, en une ligne. " +
+                        "Pour un QCM, donne la bonne option et son texte si identifiable. " +
+                        "N'ajoute ni explication longue, ni introduction, ni Markdown, ni astérisques. " +
+                        "Si aucune nouvelle question sans réponse n'est clairement identifiable, " +
+                        "réponds exactement ATTENTE.\nTEXTE DE L'ÉCRAN :\n" + question;
                 } else {
                     instruction =
                         "Tu es un assistant intelligent spécialisé dans les quiz, " +
