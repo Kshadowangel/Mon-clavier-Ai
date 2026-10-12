@@ -929,7 +929,13 @@ public class MonClavierService extends InputMethodService {
                     }
                 }
 
-                JSONObject resultat = new JSONObject(contenu.toString());
+                final String texteRecu = contenu.toString();
+
+                new Handler(Looper.getMainLooper()).post(() ->
+                    Toast.makeText(this, "API HTTP " + statut,
+                        Toast.LENGTH_LONG).show());
+
+                JSONObject resultat = new JSONObject(texteRecu);
                 String reponse = supprimerMotsConsecutifsDupliques(nettoyerReponse(resultat.optString("reponse", "")));
 
                 // Ne jamais insérer le marqueur utilisé quand aucune
