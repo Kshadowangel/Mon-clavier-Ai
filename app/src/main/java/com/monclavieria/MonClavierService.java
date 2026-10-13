@@ -375,11 +375,6 @@ public class MonClavierService extends InputMethodService {
         ajouterTouche(bas, point, 1f);
         point.setOnClickListener(v -> envoyer("."));
 
-        Button raccourciQuiz = creerTouche("QUIZ");
-        raccourciQuiz.setTextSize(11);
-        ajouterTouche(bas, raccourciQuiz, 1.2f);
-        raccourciQuiz.setOnClickListener(v -> { String rubrique = getSharedPreferences("clavier_preferences", MODE_PRIVATE).getString("rubrique_quiz_active", "repondre"); if ("repondre".equals(rubrique)) { chargerQuestionDepuisEcran(); } else { chargerQuestionDepuisPressePapiers(rubrique); } });
-
         Button entree = creerTouche("↵");
         ajouterTouche(bas, entree, 1.5f);
         entree.setOnClickListener(v -> {
@@ -394,6 +389,11 @@ public class MonClavierService extends InputMethodService {
                 ic.sendKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER));
             }
         });
+        Button raccourciQuiz = creerTouche("QUIZ");
+        raccourciQuiz.setTextSize(11);
+        ajouterTouche(bas, raccourciQuiz, 1.2f);
+        raccourciQuiz.setOnClickListener(v -> chargerQuestionDepuisEcran());
+
         clavier.addView(bas);
         return clavier;
     }
@@ -729,7 +729,7 @@ public class MonClavierService extends InputMethodService {
         long maintenant = System.currentTimeMillis();
         if (question.equals(derniereQuestionEnvoyee)
                 && mode.equals(dernierModeEnvoye)
-                && maintenant - dernierHorodatageEnvoi < 1200) {
+                && maintenant - dernierHorodatageEnvoi < 8000) {
             return;
         }
 
