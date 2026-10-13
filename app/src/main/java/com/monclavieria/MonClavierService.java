@@ -750,7 +750,7 @@ public class MonClavierService extends InputMethodService {
                 connexion = (HttpURLConnection) url.openConnection();
                 connexion.setRequestMethod("POST");
                 connexion.setConnectTimeout(10000);
-                connexion.setReadTimeout(30000);
+                connexion.setReadTimeout(100000);
                 connexion.setDoOutput(true);
                 connexion.setRequestProperty(
                     "Content-Type", "application/json; charset=UTF-8");

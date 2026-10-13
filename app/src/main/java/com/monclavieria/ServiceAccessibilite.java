@@ -28,6 +28,13 @@ public class ServiceAccessibilite extends AccessibilityService {
         AccessibilityNodeInfo racine = getRootInActiveWindow();
         if (racine == null) return;
 
+        // Ignorer une éventuelle fenêtre appartenant à MonClavierIA.
+        CharSequence paquetRacine = racine.getPackageName();
+        if (paquetRacine != null &&
+                getPackageName().contentEquals(paquetRacine)) {
+            return;
+        }
+
         StringBuilder texte = new StringBuilder();
         Set<String> dejaVus = new LinkedHashSet<>();
         int[] compteur = {0};
@@ -36,13 +43,9 @@ public class ServiceAccessibilite extends AccessibilityService {
 
         String capture = texte.toString().trim();
 
-        // Invalider l'ancienne capture si le nouvel écran est vide.
+        // Un événement transitoire vide ne doit pas effacer
+        // la dernière capture utile du quiz.
         if (capture.length() < 15) {
-            getSharedPreferences("clavier_preferences", MODE_PRIVATE)
-                .edit()
-                .remove("derniere_question_ecran")
-                .putLong("horodatage_question_ecran", 0L)
-                .apply();
             return;
         }
 
