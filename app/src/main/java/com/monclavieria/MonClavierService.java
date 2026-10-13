@@ -378,7 +378,7 @@ public class MonClavierService extends InputMethodService {
         Button raccourciQuiz = creerTouche("QUIZ");
         raccourciQuiz.setTextSize(11);
         ajouterTouche(bas, raccourciQuiz, 1.2f);
-        raccourciQuiz.setOnClickListener(v -> chargerQuestionDepuisEcran());
+        raccourciQuiz.setOnClickListener(v -> { String rubrique = getSharedPreferences("clavier_preferences", MODE_PRIVATE).getString("rubrique_quiz_active", "repondre"); if ("repondre".equals(rubrique)) { chargerQuestionDepuisEcran(); } else { chargerQuestionDepuisPressePapiers(rubrique); } });
 
         Button entree = creerTouche("↵");
         ajouterTouche(bas, entree, 1.5f);
@@ -711,6 +711,21 @@ public class MonClavierService extends InputMethodService {
 
             question = texte.toString().trim();
         }
+        if ("rub_vitesse".equals(mode)) {
+            String minuscule = question.toLowerCase(Locale.ROOT);
+            ClipboardManager presse = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+            if (presse != null) presse.setPrimaryClip(ClipData.newPlainText("Texte en minuscules", minuscule));
+            InputConnection ic = getCurrentInputConnection();
+            if (ic == null) {
+                Toast.makeText(this, "Champ de texte indisponible.", Toast.LENGTH_SHORT).show();
+            } else {
+                CharSequence selection = ic.getSelectedText(0);
+                if (selection != null && selection.toString().equals(question)) ic.commitText(minuscule, 1);
+                else ic.commitText(minuscule, 1);
+                Toast.makeText(this, "Texte converti en minuscules.", Toast.LENGTH_SHORT).show();
+            }
+            return;
+        }
         long maintenant = System.currentTimeMillis();
         if (question.equals(derniereQuestionEnvoyee)
                 && mode.equals(dernierModeEnvoye)
@@ -718,26 +733,19 @@ public class MonClavierService extends InputMethodService {
             return;
         }
 
+        if (requeteQuizActiveId != 0L) {
+            Toast.makeText(this, "Une requête est déjà en cours. Attends la réponse.", Toast.LENGTH_SHORT).show();
+            return;
+        }
         if ("quiz_ecran".equals(mode) || "quiz_copie".equals(mode)) {
-            if (requeteQuizActiveId != 0L) {
-                Toast.makeText(this,
-                    "Quiz déjà en cours : attends la réponse.",
-                    Toast.LENGTH_SHORT).show();
-                return;
-            }
             derniereCaptureQuizTraitee = question;
-        } else {
-            // Une action IA manuelle invalide toute ancienne réponse du quiz.
-            requeteQuizActiveId = 0L;
         }
 
         derniereQuestionEnvoyee = question;
         dernierModeEnvoye = mode;
         dernierHorodatageEnvoi = maintenant;
         final long idRequete = ++generationRequeteIA;
-        if ("quiz_ecran".equals(mode) || "quiz_copie".equals(mode)) {
-            requeteQuizActiveId = idRequete;
-        }
+        requeteQuizActiveId = idRequete;
         final InputConnection connexionCible = getCurrentInputConnection();
 
         Toast.makeText(this, "Groq prépare la réponse...",
@@ -792,17 +800,18 @@ public class MonClavierService extends InputMethodService {
                 } else if ("rub_vitesse".equals(mode)) {
                     instruction = "Convertis le texte en minuscules, en conservant accents et ponctuation. Texte : " + question;
                 } else if ("rub_anime".equals(mode)) {
-                    instruction = "Donne un seul personnage d'anime dont le nom commence par la lettre demandée. Texte : " + question;
+                    instruction = "Pour chaque lettre demandée, donne un personnage d’anime dont le nom commence par cette lettre. Si plusieurs lettres sont données, réponds pour chacune dans le même ordre. Réponse courte, sans explication. Texte : " + question;
                 } else if ("rub_vaurien".equals(mode)) {
-                    instruction = "Trouve un seul nom correspondant à l'indice, sans explication. Indice : " + question;
+                    instruction = "Résous l’indice et donne directement la réponse attendue, sans explication inutile. Exemples : un chanteur demandé avec Q peut être Drake ; Ai de Oshi no Ko = Ai Hoshino ; une épée = Enma ; un dieu = Zeus ; une puissance peut être Rayon noir. Si plusieurs indices sont donnés, réponds à chacun dans le même ordre. Indice : " + question;
                 } else if ("rub_emoji".equals(mode)) {
-                    instruction = "Identifie cet emoji ou ce drapeau en une réponse courte. Texte : " + question;
+                    instruction = "Identifie chaque emoji ou drapeau séparément. Si plusieurs sont présents, donne le nom de chacun dans le même ordre, sans en oublier. Réponse courte, sans astérisques ni Markdown. Texte : " + question;
                 } else {
                     instruction = "Réponds précisément à la question. Sois concis, évite les répétitions et " +
                         "retourne une réponse propre, sans Markdown ni astérisques. Question : " + question;
                 }
 
                 demande.put("message", instruction);
+                demande.put("mode", mode);
 
                 byte[] donnees =
                     demande.toString().getBytes(StandardCharsets.UTF_8);
