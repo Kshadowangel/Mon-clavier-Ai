@@ -186,11 +186,6 @@ public class MonClavierService extends InputMethodService {
         ajouterTouche(barreSuperieure, raccourciIA, 1f);
         raccourciIA.setOnClickListener(v -> afficherMenuIA(v));
 
-        Button raccourciQuiz = creerTouche("QUIZ");
-        raccourciQuiz.setTextSize(13);
-        ajouterTouche(barreSuperieure, raccourciQuiz, 1.2f);
-        raccourciQuiz.setOnClickListener(v -> chargerQuestionDepuisEcran());
-
         Button parametres = creerTouche("⚙");
         parametres.setTextSize(17);
         ajouterTouche(barreSuperieure, parametres, 0.8f);
@@ -373,12 +368,17 @@ public class MonClavierService extends InputMethodService {
         virgule.setOnClickListener(v -> envoyer(","));
 
         Button espace = creerTouche("Espace");
-        ajouterTouche(bas, espace, 4f);
+        ajouterTouche(bas, espace, 3f);
         espace.setOnClickListener(v -> envoyer(" "));
 
         Button point = creerTouche(".");
         ajouterTouche(bas, point, 1f);
         point.setOnClickListener(v -> envoyer("."));
+
+        Button raccourciQuiz = creerTouche("QUIZ");
+        raccourciQuiz.setTextSize(11);
+        ajouterTouche(bas, raccourciQuiz, 1.2f);
+        raccourciQuiz.setOnClickListener(v -> chargerQuestionDepuisEcran());
 
         Button entree = creerTouche("↵");
         ajouterTouche(bas, entree, 1.5f);
@@ -608,38 +608,39 @@ public class MonClavierService extends InputMethodService {
 
     private void afficherMenuIA(View ancre) {
         PopupMenu menu = new PopupMenu(this, ancre);
-        menu.getMenu().add("Répondre");
+        menu.getMenu().add("Répondre — mode normal");
         menu.getMenu().add("Corriger");
         menu.getMenu().add("Reformuler");
-        menu.getMenu().add("Vitesse - minuscules");
-        menu.getMenu().add("Lettre - personnage animé");
-        menu.getMenu().add("Vaurien - trouver un nom");
-        menu.getMenu().add("Rub Emoji - identifier");
+        menu.getMenu().add("Vitesse — minuscules");
+        menu.getMenu().add("Lettre — personnage animé");
+        menu.getMenu().add("Vaurien — trouver un nom");
+        menu.getMenu().add("Emoji — identifier");
 
         menu.setOnMenuItemClickListener(item -> {
             String choix = item.getTitle().toString();
-            String mode;
 
             if (choix.equals("Corriger")) {
-                mode = "corriger";
-            } else if (choix.equals("Reformuler")) {
-                mode = "reformuler";
-            } else if (choix.equals("Vitesse - minuscules")) {
-                mode = "rub_vitesse";
-            } else if (choix.equals("Lettre - personnage animé")) {
-                mode = "rub_anime";
-            } else if (choix.equals("Vaurien - trouver un nom")) {
-                mode = "rub_vaurien";
-            } else if (choix.equals("Rub Emoji - identifier")) {
-                mode = "rub_emoji";
-            } else {
-                mode = "repondre";
+                chargerQuestionDepuisPressePapiers("corriger");
+                return true;
+            }
+            if (choix.equals("Reformuler")) {
+                chargerQuestionDepuisPressePapiers("reformuler");
+                return true;
             }
 
-            chargerQuestionDepuisPressePapiers(mode);
+            String mode = "repondre";
+            if (choix.startsWith("Vitesse")) mode = "rub_vitesse";
+            else if (choix.startsWith("Lettre")) mode = "rub_anime";
+            else if (choix.startsWith("Vaurien")) mode = "rub_vaurien";
+            else if (choix.startsWith("Emoji")) mode = "rub_emoji";
+
+            getSharedPreferences("clavier_preferences", MODE_PRIVATE)
+                .edit().putString("rubrique_quiz_active", mode).apply();
+
+            Toast.makeText(this, "Rubrique mémorisée : " + choix,
+                Toast.LENGTH_SHORT).show();
             return true;
         });
-
         menu.show();
     }
 
@@ -739,7 +740,7 @@ public class MonClavierService extends InputMethodService {
         }
         final InputConnection connexionCible = getCurrentInputConnection();
 
-        Toast.makeText(this, "OpenRouter prépare la réponse...",
+        Toast.makeText(this, "Groq prépare la réponse...",
             Toast.LENGTH_SHORT).show();
 
         new Thread(() -> {
@@ -757,71 +758,50 @@ public class MonClavierService extends InputMethodService {
                 JSONObject demande = new JSONObject();
                 String instruction;
                 if (mode.equals("corriger")) {
-                    instruction =
-                        "Corrige uniquement l'orthographe, la grammaire et la ponctuation. " +
-                        "Conserve le sens, le ton et la langue du texte. " +
-                        "Retourne uniquement le texte corrigé, sans introduction ni Markdown. " +
-                        "Texte : " + question;
-                } else if (mode.equals("rub_vitesse")) {
-                    instruction =
-                        "Convertis le texte fourni entièrement en minuscules. " +
-                        "Conserve les mots, les accents, les chiffres et la ponctuation. " +
-                        "Retourne uniquement le texte transformé, sans explication. " +
-                        "Texte : " + question;
-                } else if (mode.equals("rub_anime")) {
-                    instruction =
-                        "Tu joues à un quiz : une lettre est donnée et il faut citer " +
-                        "un personnage d'anime dont le nom commence par cette lettre. " +
-                        "Donne exactement un seul nom de personnage valide. " +
-                        "Ne donne ni liste, ni second nom, ni explication. " +
-                        "Respecte la lettre demandée. Si plusieurs détails sont fournis, " +
-                        "tiens-en compte. Texte : " + question;
-                } else if (mode.equals("rub_vaurien")) {
-                    instruction =
-                        "Tu joues à un quiz d'association d'indices appelé Vaurien. " +
-                        "À partir de l'indice fourni, trouve le nom le plus attendu. " +
-                        "Cela peut être un personnage d'anime, une personne réelle, " +
-                        "une œuvre, un objet ou un personnage de fiction. " +
-                        "Exemples : épéiste dans One Piece = Zoro ; épée dans One Piece = Enma. " +
-                        "Donne un seul nom correspondant à l’indice, sans explication. " +
-                        "Ne répète pas le nom et ne propose aucune alternative. " +
-                        "Indice : " + question;
-                } else if (mode.equals("rub_emoji")) {
-                    instruction =
-                        "Identifie précisément l'emoji fourni. Si c'est un drapeau, " +
-                        "donne le pays ou l'organisation correspondante. Sinon, " +
-                        "donne le nom ou la signification habituelle de l'emoji. " +
-                        "Donne une seule identification courte, sans explication. " +
-                        "Pour un emoji, retourne un seul nom ou une seule signification. " +
-                        "Emoji ou texte : " + question;
-                } else if (mode.equals("quiz_ecran") || mode.equals("quiz_copie")) {
-                    instruction =
-                        "Tu es le moteur de réponse d'un quiz. Analyse le texte fourni " +
-                        "et détecte la rubrique active. " +
-                        "Vitesse : transforme le texte demandé en minuscules, " +
-                        "en conservant les accents et la ponctuation. " +
-                        "Vaurien : trouve un seul nom correspondant à l'indice. " +
-                        "Emoji : identifie précisément l'emoji, le pays ou sa signification. " +
-                        "Lettre de personnage : donne un seul personnage d'anime dont " +
-                        "le nom commence par la lettre demandée. " +
-                        "Si aucune de ces rubriques n'est active, réponds à la question " +
-                        "de quiz la plus récente qui n'a pas encore de réponse visible. " +
-                        "Ignore les anciennes questions déjà répondues. " +
-                        "Pour un QCM, donne l'option correcte et son texte si possible. " +
-                        "Ne recopie jamais l'énoncé. Retourne une seule réponse concise, " +
-                        "sans introduction, sans explication inutile, sans Markdown " +
-                        "ni astérisques. Si aucune question active n'est clairement identifiable, " +
-                        "réponds exactement ATTENTE. Texte : " + question;
+                    instruction = "Corrige uniquement l'orthographe, la grammaire et la ponctuation. " +
+                        "Conserve le sens. Retourne uniquement le texte corrigé, sans Markdown. Texte : " + question;
+                } else if (mode.equals("reformuler")) {
+                    instruction = "Reformule le texte pour le rendre plus clair et naturel. " +
+                        "Conserve le sens et retourne uniquement le texte reformulé, sans Markdown. Texte : " + question;
+                } else if ("quiz_ecran".equals(mode) || "quiz_copie".equals(mode)) {
+                    String rubrique = getSharedPreferences("clavier_preferences", MODE_PRIVATE)
+                        .getString("rubrique_quiz_active", "repondre");
+
+                    if ("rub_vitesse".equals(rubrique)) {
+                        instruction = "Repère la question active la plus récente du quiz. " +
+                            "Réponds en minuscules, en conservant accents et ponctuation. " +
+                            "Si aucune question identifiable, réponds exactement ATTENTE. Texte : " + question;
+                    } else if ("rub_anime".equals(rubrique)) {
+                        instruction = "Repère la lettre de la question active la plus récente. " +
+                            "Donne un seul personnage d'anime dont le nom commence par cette lettre. " +
+                            "Sans question identifiable, réponds exactement ATTENTE. Texte : " + question;
+                    } else if ("rub_vaurien".equals(rubrique)) {
+                        instruction = "Repère l'indice de la question active la plus récente. " +
+                            "Donne un seul nom correspondant à l'indice, sans explication. " +
+                            "Sans question identifiable, réponds exactement ATTENTE. Texte : " + question;
+                    } else if ("rub_emoji".equals(rubrique)) {
+                        instruction = "Repère l'emoji ou le drapeau demandé dans la question active. " +
+                            "Donne une seule identification courte. Sans question identifiable, " +
+                            "réponds exactement ATTENTE. Texte : " + question;
+                    } else {
+                        instruction = "Repère la question active la plus récente du quiz sans réponse. " +
+                            "Pour un QCM, donne l'option correcte et son texte si possible. " +
+                            "Ne recopie pas l'énoncé. Réponds brièvement, sans Markdown ni astérisques. " +
+                            "Si aucune question identifiable, réponds exactement ATTENTE. Texte : " + question;
+                    }
+                } else if ("rub_vitesse".equals(mode)) {
+                    instruction = "Convertis le texte en minuscules, en conservant accents et ponctuation. Texte : " + question;
+                } else if ("rub_anime".equals(mode)) {
+                    instruction = "Donne un seul personnage d'anime dont le nom commence par la lettre demandée. Texte : " + question;
+                } else if ("rub_vaurien".equals(mode)) {
+                    instruction = "Trouve un seul nom correspondant à l'indice, sans explication. Indice : " + question;
+                } else if ("rub_emoji".equals(mode)) {
+                    instruction = "Identifie cet emoji ou ce drapeau en une réponse courte. Texte : " + question;
                 } else {
-                    instruction =
-                        "Tu es un assistant intelligent spécialisé dans les quiz, " +
-                        "les connaissances générales, les définitions et les explications. " +
-                        "Réponds précisément à la question. Adapte la longueur au besoin. " +
-                        "N'invente pas de faits et signale honnêtement les doutes importants. " +
-                        "Évite les introductions inutiles et les répétitions. " +
-                        "Retourne une réponse propre, sans Markdown ni astérisques. " +
-                        "Question : " + question;
+                    instruction = "Réponds précisément à la question. Sois concis, évite les répétitions et " +
+                        "retourne une réponse propre, sans Markdown ni astérisques. Question : " + question;
                 }
+
                 demande.put("message", instruction);
 
                 byte[] donnees =
@@ -872,7 +852,7 @@ public class MonClavierService extends InputMethodService {
 
                 if (statut < 200 || statut >= 300 || reponse.isEmpty()) {
                     throw new IOException(resultat.optString(
-                        "erreur", "Erreur de l'API OpenRouter."));
+                        "erreur", "Erreur de l'API Groq."));
                 }
 
                 new Handler(Looper.getMainLooper()).post(() -> {
@@ -910,9 +890,6 @@ public class MonClavierService extends InputMethodService {
                         if (gestionPressePapiers != null) {
                             gestionPressePapiers.setPrimaryClip(
                                 ClipData.newPlainText("Réponse", reponse));
-                        }
-                        if ("quiz_ecran".equals(mode) || "quiz_copie".equals(mode)) {
-                            ic.performContextMenuAction(android.R.id.selectAll);
                         }
                         ic.commitText(reponse, 1);
                         Toast.makeText(this, "Réponse insérée et copiée !",
