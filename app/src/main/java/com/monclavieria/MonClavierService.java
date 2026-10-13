@@ -637,8 +637,45 @@ public class MonClavierService extends InputMethodService {
             getSharedPreferences("clavier_preferences", MODE_PRIVATE)
                 .edit().putString("rubrique_quiz_active", mode).apply();
 
-            Toast.makeText(this, "Rubrique mémorisée : " + choix,
-                Toast.LENGTH_SHORT).show();
+            // Invalider immédiatement les réponses de l'ancien mode.
+            generationRequeteIA++;
+            requeteQuizActiveId = 0L;
+            derniereQuestionEnvoyee = "";
+            dernierModeEnvoye = "";
+            dernierHorodatageEnvoi = 0L;
+
+            android.content.SharedPreferences prefsQuiz =
+                getSharedPreferences("clavier_preferences", MODE_PRIVATE);
+
+            String texteEcran = prefsQuiz.getString(
+                "derniere_question_ecran", "");
+            long captureQuiz = prefsQuiz.getLong(
+                "horodatage_question_ecran", 0L);
+            long ageCapture = System.currentTimeMillis() - captureQuiz;
+
+            if (texteEcran != null && !texteEcran.trim().isEmpty()
+                    && captureQuiz > 0 && ageCapture >= 0
+                    && ageCapture <= 30000) {
+                Toast.makeText(this, "Mode activé : " + choix,
+                    Toast.LENGTH_SHORT).show();
+                if ("rub_vitesse".equals(mode)) {
+                    chargerQuestionDepuisPressePapiers(
+                        "rub_vitesse", texteEcran);
+                } else {
+                    chargerQuestionDepuisPressePapiers(
+                        "quiz_ecran", texteEcran);
+                }
+            } else if ("rub_vitesse".equals(mode)) {
+                Toast.makeText(this,
+                    "Vitesse : conversion en minuscules.",
+                    Toast.LENGTH_SHORT).show();
+                chargerQuestionDepuisPressePapiers("rub_vitesse");
+            } else {
+                Toast.makeText(this,
+                    "Mode activé : " + choix
+                    + ". Affiche une question puis appuie sur QUIZ.",
+                    Toast.LENGTH_LONG).show();
+            }
             return true;
         });
         menu.show();
@@ -733,9 +770,11 @@ public class MonClavierService extends InputMethodService {
             return;
         }
 
+        // Une nouvelle question peut remplacer une requête encore en cours.
+        // La génération empêche son ancienne réponse d'être insérée.
         if (requeteQuizActiveId != 0L) {
-            Toast.makeText(this, "Une requête est déjà en cours. Attends la réponse.", Toast.LENGTH_SHORT).show();
-            return;
+            generationRequeteIA++;
+            requeteQuizActiveId = 0L;
         }
         if ("quiz_ecran".equals(mode) || "quiz_copie".equals(mode)) {
             derniereCaptureQuizTraitee = question;
@@ -748,7 +787,7 @@ public class MonClavierService extends InputMethodService {
         requeteQuizActiveId = idRequete;
         final InputConnection connexionCible = getCurrentInputConnection();
 
-        Toast.makeText(this, "Groq prépare la réponse...",
+        Toast.makeText(this, "Gemini prépare la réponse...",
             Toast.LENGTH_SHORT).show();
 
         new Thread(() -> {
@@ -758,7 +797,7 @@ public class MonClavierService extends InputMethodService {
                 connexion = (HttpURLConnection) url.openConnection();
                 connexion.setRequestMethod("POST");
                 connexion.setConnectTimeout(10000);
-                connexion.setReadTimeout(100000);
+                connexion.setReadTimeout(35000);
                 connexion.setDoOutput(true);
                 connexion.setRequestProperty(
                     "Content-Type", "application/json; charset=UTF-8");
